@@ -1,0 +1,13 @@
+kind = "web"
+previewPath = "/"
+title = "FlowRev"
+version = "1.0.0"
+id = "flowrev_web_artifact_001"
+
+[[services]]
+localPort = 3000
+name = "FlowRev Web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/flowrev run serve"
