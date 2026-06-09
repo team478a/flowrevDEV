@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Unzo0KqR0af9jRkU9wIPa"
+uri = "file://artifacts/flowrev/SUPABASE_SETUP.md"
+type = "text"
+title = "Supabase セットアップガイド"
