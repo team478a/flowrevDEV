@@ -1,0 +1,156 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export interface WhiteLabelListItem {
+  id: string;
+  brandName: string;
+  brandColor: string | null;
+  status: string | null;
+  planName: string | null;
+  ownerEmail: string | null;
+  createdAt: string | null;
+}
+
+export interface CreateWhiteLabelInput {
+  brandName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+  ownerDisplayName?: string;
+  planId?: string;
+  brandColor?: string;
+}
+
+/**
+ * ホワイトラベル一覧を取得する（管理者クライアント・RLSバイパス）。
+ * 呼び出し側で system_admin であることを必ず確認すること。
+ */
+export async function listWhiteLabels(): Promise<WhiteLabelListItem[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("white_labels")
+    .select("id, brand_name, brand_color, status, created_at, owner_user_id, plans(name)")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`ホワイトラベルの取得に失敗しました: ${error.message}`);
+  }
+
+  // オーナーのメールを auth.users から一括取得してマッピングする。
+  const { data: usersData } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+  const emailById = new Map<string, string>();
+  for (const u of usersData?.users ?? []) {
+    if (u.email) emailById.set(u.id, u.email);
+  }
+
+  return (data ?? []).map((row) => {
+    const plan = row.plans as { name: string } | { name: string }[] | null;
+    const planName = Array.isArray(plan) ? (plan[0]?.name ?? null) : (plan?.name ?? null);
+    return {
+      id: row.id as string,
+      brandName: row.brand_name as string,
+      brandColor: (row.brand_color as string) ?? null,
+      status: (row.status as string) ?? null,
+      planName,
+      ownerEmail: emailById.get(row.owner_user_id as string) ?? null,
+      createdAt: (row.created_at as string) ?? null,
+    };
+  });
+}
+
+/**
+ * ロールバック（補償処理）の失敗を集約し、手動確認が必要な旨を付記する。
+ * 補償が全て成功なら空文字を返す。
+ */
+function rollbackNote(
+  cleanupErrors: (string | undefined | null)[],
+  userId: string,
+): string {
+  const errs = cleanupErrors.filter((e): e is string => Boolean(e));
+  if (errs.length === 0) return "";
+  return ` ※ロールバックが不完全です。手動確認が必要（userId=${userId}）: ${errs.join(" / ")}`;
+}
+
+/**
+ * ホワイトラベルとそのオーナーユーザーを作成する（管理者クライアント）。
+ * 1) オーナー認証ユーザー作成（トリガーが user_profiles を生成）
+ * 2) white_labels 作成
+ * 3) user_profiles.white_label_id を紐付け（更新1件を厳密確認）
+ * 途中で失敗した場合は作成済みリソースをロールバックし、
+ * 補償処理自体が失敗した場合はその旨をエラーに含める。
+ */
+export async function createWhiteLabel(
+  input: CreateWhiteLabelInput,
+): Promise<{ id: string }> {
+  const admin = createAdminClient();
+
+  // 1) オーナー認証ユーザー
+  const { data: created, error: createUserError } =
+    await admin.auth.admin.createUser({
+      email: input.ownerEmail,
+      password: input.ownerPassword,
+      email_confirm: true,
+      user_metadata: {
+        role: "white_label_owner",
+        display_name: input.ownerDisplayName ?? input.ownerEmail,
+      },
+    });
+
+  if (createUserError || !created?.user) {
+    throw new Error(
+      `オーナーユーザーの作成に失敗しました: ${createUserError?.message ?? "不明なエラー"}`,
+    );
+  }
+  const userId = created.user.id;
+
+  // 2) white_labels
+  const insertPayload: Record<string, unknown> = {
+    owner_user_id: userId,
+    brand_name: input.brandName,
+  };
+  if (input.planId) insertPayload.plan_id = input.planId;
+  if (input.brandColor) insertPayload.brand_color = input.brandColor;
+
+  const { data: wl, error: wlError } = await admin
+    .from("white_labels")
+    .insert(insertPayload)
+    .select("id")
+    .single();
+
+  if (wlError || !wl) {
+    const { error: userCleanupError } =
+      await admin.auth.admin.deleteUser(userId);
+    throw new Error(
+      `ホワイトラベルの作成に失敗しました: ${wlError?.message ?? "不明なエラー"}` +
+        rollbackNote([userCleanupError?.message], userId),
+    );
+  }
+  const wlId = wl.id as string;
+
+  // 3) プロフィールにテナントを紐付け（更新が1件であることを厳密に確認）
+  const { data: updatedRows, error: profileError } = await admin
+    .from("user_profiles")
+    .update({ white_label_id: wlId })
+    .eq("id", userId)
+    .select("id");
+
+  if (profileError || !updatedRows || updatedRows.length !== 1) {
+    const { error: wlCleanupError } = await admin
+      .from("white_labels")
+      .delete()
+      .eq("id", wlId);
+    const { error: userCleanupError } =
+      await admin.auth.admin.deleteUser(userId);
+    const reason =
+      profileError?.message ??
+      "対象プロフィールが見つかりませんでした（更新0件）";
+    throw new Error(
+      `オーナーのテナント紐付けに失敗しました: ${reason}` +
+        rollbackNote([wlCleanupError?.message, userCleanupError?.message], userId),
+    );
+  }
+
+  return { id: wlId };
+}

@@ -5,6 +5,7 @@ interface PlaceholderHomeProps {
   role: string | null;
   email: string | null;
   displayName: string | null;
+  children?: React.ReactNode;
 }
 
 /**
@@ -16,6 +17,7 @@ export function PlaceholderHome({
   role,
   email,
   displayName,
+  children,
 }: PlaceholderHomeProps) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-16">
@@ -47,6 +49,8 @@ export function PlaceholderHome({
           </dd>
         </div>
       </dl>
+
+      {children && <div className="flex flex-wrap gap-3">{children}</div>}
 
       <p className="text-sm text-muted-foreground">
         認証と権限ガードが有効です。各機能は後続タスクで実装します。

@@ -27,3 +27,12 @@ Use a generous `restart_workflow` timeout (~180s) to cover the build.
 Also note: the platform injects `PORT` for the artifact (confirmed = the
 `localPort` from `artifact.toml`); the dev command must bind to `$PORT`. Do not add
 a `[services.env] PORT=...` override — let the platform set it.
+
+## force-dynamic for DB/admin-client pages
+Server Components that query Supabase (esp. the service_role admin client) but do
+NOT read `cookies()`/`headers()` get statically prerendered during `next build`,
+which runs the DB query at build time with no request context → build fails
+(e.g. "Invalid path specified in request URL"). Pages that read cookies (via the
+auth session helper) are auto-dynamic and unaffected.
+**Rule:** any page calling a DB/admin repository directly must set
+`export const dynamic = "force-dynamic";`.
