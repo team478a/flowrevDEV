@@ -17,6 +17,12 @@ export default async function AdminDashboardPage() {
       >
         ホワイトラベル管理
       </Link>
+      <Link
+        href="/admin/plans"
+        className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        プラン管理
+      </Link>
     </PlaceholderHome>
   );
 }
