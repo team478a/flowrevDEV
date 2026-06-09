@@ -4,5 +4,6 @@
 - [Supabase RLS multi-tenant hardening](supabase-rls-multitenant.md) — tenant-scoped policies need role guards; profile UPDATE must block role/tenant change; signup-trigger metadata trust requires public signup OFF.
 - [Encrypted provider keys (email/AI)](encrypted-settings-keys.md) — Resend/AI keys live encrypted in Postgres (AES-256-GCM via ENCRYPTION_KEY), resolved WL→HQ; not env vars.
 - [Supabase SSR middleware gotchas](supabase-ssr-middleware.md) — copy refreshed cookies onto every redirect Response, and don't put trailing slashes in public-path prefixes when the matcher appends `/`.
+- [Pending migrations](pending-migrations.md) — migrations written to repo but not yet run in Supabase SQL Editor; remind user before testing affected features.
 - [Client invitation flow](invitation-flow.md) — WL-owner onboarding is invite-based, split into create (URL shown) vs `/register?token=` accept; uses RLS session client, not admin.
 - [Supabase URL normalization](supabase-url-normalization.md) — NEXT_PUBLIC_SUPABASE_URL must be bare origin; a `/rest/v1/` path breaks every call ("Invalid path"); normalized in code.
