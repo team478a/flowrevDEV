@@ -1,5 +1,5 @@
 -- ============================================================
--- FlowRev DB Migration 0006: RLS有効化 + ヘルパー関数
+-- FlowRev DB Migration 0006: RLS有効化 + ヘルパー関数（強化版）
 -- 前提: 0001〜0005 を実行済み
 -- 実行順: 0006 → 0007 → 0008
 -- ============================================================
@@ -34,19 +34,23 @@ ALTER TABLE ai_provider_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_settings ENABLE ROW LEVEL SECURITY;
 
 -- ========================================
--- ヘルパー関数（SECURITY DEFINER で user_profiles を参照し RLS 再帰を回避）
+-- ヘルパー関数
+-- SECURITY DEFINER で user_profiles を参照し RLS 再帰を回避。
+-- search_path を固定し関数経由の権限昇格を防止（強化）。
+-- 参照するのは「コミット済みの自分の行」なので、UPDATE時の WITH CHECK で
+-- 変更前の値との比較にも利用できる（role/テナント改竄の防止）。
 -- ========================================
 CREATE OR REPLACE FUNCTION get_user_role()
 RETURNS TEXT AS $$
-  SELECT role FROM user_profiles WHERE id = auth.uid();
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+  SELECT role FROM public.user_profiles WHERE id = auth.uid();
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION get_user_client_id()
 RETURNS UUID AS $$
-  SELECT client_id FROM user_profiles WHERE id = auth.uid();
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+  SELECT client_id FROM public.user_profiles WHERE id = auth.uid();
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION get_user_white_label_id()
 RETURNS UUID AS $$
-  SELECT white_label_id FROM user_profiles WHERE id = auth.uid();
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+  SELECT white_label_id FROM public.user_profiles WHERE id = auth.uid();
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public, pg_temp;
