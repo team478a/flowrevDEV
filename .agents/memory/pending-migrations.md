@@ -14,6 +14,9 @@ When the user confirms it has been executed, remove the entry.
 | ファイル | テーブル | 影響ページ | 状態 |
 |---|---|---|---|
 | `supabase/migrations/0002_products.sql` | `products` + RLS + インデックス | `/products` 一覧・作成・編集 | **未実行** |
+| `supabase/migrations/0003_landing_pages.sql` | `landing_pages` + RLS + インデックス | `/lp` 一覧・作成・編集、`/p/[slug]` 公開ページ | **未実行** |
+
+**注意**: 0003 は 0002（products テーブル）への外部キーがあるため、0002 → 0003 の順に実行すること。
 
 **Why:** DDL は PostgREST 経由では実行不可。ユーザーが Supabase ダッシュボード SQL Editor で手動実行する必要がある。未実行のまま該当ページを開くと「取得に失敗しました」エラーが表示される（他ページへの影響なし）。
 
