@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const INVITE_EXPIRY_DAYS = 7;
 
@@ -93,4 +94,86 @@ export async function listInvitations(): Promise<InvitationRow[]> {
     expiresAt: (r.expires_at as string) ?? null,
     createdAt: (r.created_at as string) ?? null,
   }));
+}
+
+export interface ValidInvitation {
+  id: string;
+  whiteLabelId: string;
+  email: string;
+  clientName: string;
+  representativeName: string | null;
+  planId: string | null;
+}
+
+/**
+ * トークンに対応する「有効な」招待を返す（admin クライアントで RLS バイパス）。
+ * 未ログインの受諾フローから呼ぶため service-role を使う。
+ * 存在しない / status!='pending' / 期限切れ の場合は null を返す。
+ */
+export async function getValidInvitationByToken(
+  token: string,
+): Promise<ValidInvitation | null> {
+  if (!token) return null;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("invitations")
+    .select(
+      "id, white_label_id, email, client_name, representative_name, plan_id, status, expires_at",
+    )
+    .eq("token", token)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  if (data.status !== "pending") return null;
+  if (!data.expires_at || new Date(data.expires_at as string) <= new Date()) {
+    return null;
+  }
+
+  return {
+    id: data.id as string,
+    whiteLabelId: data.white_label_id as string,
+    email: data.email as string,
+    clientName: data.client_name as string,
+    representativeName: (data.representative_name as string) ?? null,
+    planId: (data.plan_id as string) ?? null,
+  };
+}
+
+/**
+ * 招待を「請求」する（pending → accepted への条件付き更新, §14-1 即時無効化）。
+ * pending のものだけを対象にし、更新件数を検証することで二重受諾を確実に防ぐ。
+ * 1件更新できた場合のみ true（＝このリクエストが招待を獲得した）を返す。
+ */
+export async function claimInvitation(token: string): Promise<boolean> {
+  const supabase = createAdminClient();
+  // 検証（pending かつ未期限）と請求を同一の原子的更新で行い、検証〜請求間の
+  // 期限到達・競合の窓をなくす。
+  const { data, error } = await supabase
+    .from("invitations")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("token", token)
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString())
+    .select("id");
+
+  if (error) {
+    throw new Error(`招待ステータスの更新に失敗しました: ${error.message}`);
+  }
+
+  return (data?.length ?? 0) > 0;
+}
+
+/**
+ * 招待を pending に戻す（受諾処理が途中失敗した際の補償用, admin クライアント）。
+ * 補償失敗は呼び出し側で監査ログ化できるよう error を返す。
+ */
+export async function revertInvitationToPending(
+  token: string,
+): Promise<{ error: string | null }> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("invitations")
+    .update({ status: "pending", accepted_at: null })
+    .eq("token", token);
+  return { error: error?.message ?? null };
 }

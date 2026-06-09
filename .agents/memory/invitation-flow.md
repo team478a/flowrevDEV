@@ -24,7 +24,19 @@ WL owner creates an invitation → invitee registers via `/register?token=` → 
   URL for an externally-shared link).
 - Do NOT SELECT `token` in list queries — only needed when building the URL at creation.
 
-## How to apply (Phase B)
-When implementing `/register?token=`, validate existence + `expires_at` + `status=='pending'`
-first, then on success flip status to `accepted` with `accepted_at` and create the `clients`
-row (owner_user_id = new user). Fix the token-validation contract before wiring email.
+## Phase B (done): `/register?token=` acceptance
+Auth-user creation (Supabase Auth API) and the DB writes (clients/invitations) cannot share
+one SQL transaction, so the flow is **compensation-based**, not atomic:
+order = createUser → claimInvitation → createClient; on any later failure, delete the user
+and revert the invitation.
+
+**Why / hard-won rules:**
+- Double-acceptance is prevented by making the claim itself the atomic gate: a single UPDATE
+  `status='accepted' WHERE token AND status='pending' AND expires_at > now()`, then check the
+  returned row count (`.select('id')`, length > 0). A plain validate-then-update has a race
+  window — fold validation INTO the claiming UPDATE.
+- Every compensation call (deleteUser, revert invitation, delete orphan client) MUST inspect
+  its error and emit an audit log on failure — a failed `deleteUser` leaves a stray
+  `client_owner` (access-control risk), not just a data blemish. Never swallow compensation errors.
+- clients/invitations writes use the admin (service-role) client: a brand-new client_owner has
+  no RLS rights to insert clients or update invitations.
