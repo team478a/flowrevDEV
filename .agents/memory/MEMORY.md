@@ -1,2 +1,3 @@
 - [Next.js on Replit artifacts](nextjs-replit-port-detection.md) — `next dev` is never detected by the artifact port monitor; serve a precompiled build instead.
 - [Package firewall blocks old patches](package-firewall-version-blocks.md) — some older npm patch versions 403 from the mirror; probe tarball HTTP status to find an allowed version.
+- [Supabase schema apply](supabase-schema-apply.md) — the service_role (sb_secret) key only does PostgREST data ops, NOT DDL; raw schema must run in SQL Editor or via DB connection string.
