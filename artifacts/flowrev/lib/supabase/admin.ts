@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { normalizeSupabaseUrl } from "./url";
 
 /**
  * 管理用 Supabase クライアント（サーバー専用）。
@@ -16,7 +17,7 @@ export function createAdminClient() {
     );
   }
 
-  return createSupabaseClient(url, serviceRoleKey, {
+  return createSupabaseClient(normalizeSupabaseUrl(url), serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

@@ -3,3 +3,4 @@
 - [Supabase schema apply](supabase-schema-apply.md) — the service_role (sb_secret) key only does PostgREST data ops, NOT DDL; raw schema must run in SQL Editor or via DB connection string.
 - [Supabase RLS multi-tenant hardening](supabase-rls-multitenant.md) — tenant-scoped policies need role guards; profile UPDATE must block role/tenant change; signup-trigger metadata trust requires public signup OFF.
 - [Supabase SSR middleware gotchas](supabase-ssr-middleware.md) — copy refreshed cookies onto every redirect Response, and don't put trailing slashes in public-path prefixes when the matcher appends `/`.
+- [Supabase URL normalization](supabase-url-normalization.md) — NEXT_PUBLIC_SUPABASE_URL must be bare origin; a `/rest/v1/` path breaks every call ("Invalid path"); normalized in code.

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { normalizeSupabaseUrl } from "./url";
 
 /**
  * サーバー（Server Components / Route Handlers / Server Actions）用 Supabase クライアント。
@@ -18,7 +19,7 @@ export function createClient() {
 
   const cookieStore = cookies();
 
-  return createServerClient(url, anonKey, {
+  return createServerClient(normalizeSupabaseUrl(url), anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

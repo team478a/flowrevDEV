@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { roleHomePath } from "@/features/auth/role";
+import { normalizeSupabaseUrl } from "./url";
 
 /**
  * 認証不要で誰でもアクセスできるパスのプレフィックス。
@@ -44,7 +45,7 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  const supabase = createServerClient(url, anonKey, {
+  const supabase = createServerClient(normalizeSupabaseUrl(url), anonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
