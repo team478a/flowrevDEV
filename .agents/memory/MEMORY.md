@@ -2,6 +2,7 @@
 - [Package firewall blocks old patches](package-firewall-version-blocks.md) — some older npm patch versions 403 from the mirror; probe tarball HTTP status to find an allowed version.
 - [Supabase schema apply](supabase-schema-apply.md) — the service_role (sb_secret) key only does PostgREST data ops, NOT DDL; raw schema must run in SQL Editor or via DB connection string.
 - [Supabase RLS multi-tenant hardening](supabase-rls-multitenant.md) — tenant-scoped policies need role guards; profile UPDATE must block role/tenant change; signup-trigger metadata trust requires public signup OFF.
+- [Encrypted provider keys (email/AI)](encrypted-settings-keys.md) — Resend/AI keys live encrypted in Postgres (AES-256-GCM via ENCRYPTION_KEY), resolved WL→HQ; not env vars.
 - [Supabase SSR middleware gotchas](supabase-ssr-middleware.md) — copy refreshed cookies onto every redirect Response, and don't put trailing slashes in public-path prefixes when the matcher appends `/`.
 - [Client invitation flow](invitation-flow.md) — WL-owner onboarding is invite-based, split into create (URL shown) vs `/register?token=` accept; uses RLS session client, not admin.
 - [Supabase URL normalization](supabase-url-normalization.md) — NEXT_PUBLIC_SUPABASE_URL must be bare origin; a `/rest/v1/` path breaks every call ("Invalid path"); normalized in code.

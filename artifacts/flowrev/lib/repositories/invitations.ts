@@ -96,38 +96,6 @@ export async function listInvitations(): Promise<InvitationRow[]> {
   }));
 }
 
-export interface InvitationForSend {
-  token: string;
-  email: string;
-  clientName: string;
-  whiteLabelId: string;
-}
-
-/**
- * 送信用に招待を取得する（RLS 適用のセッションクライアント）。
- * white_label_owner は自テナントの招待のみ取得できる。pending 以外は null。
- */
-export async function getInvitationForSend(
-  id: string,
-): Promise<InvitationForSend | null> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("invitations")
-    .select("token, email, client_name, white_label_id, status")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !data) return null;
-  if (data.status !== "pending") return null;
-
-  return {
-    token: data.token as string,
-    email: data.email as string,
-    clientName: data.client_name as string,
-    whiteLabelId: data.white_label_id as string,
-  };
-}
-
 export interface ValidInvitation {
   id: string;
   whiteLabelId: string;
