@@ -24,13 +24,20 @@ export interface CreateInvitationState {
 }
 
 function buildInviteUrl(token: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/+$/, "");
-  if (!base) {
-    throw new Error(
-      "NEXT_PUBLIC_APP_URL が未設定のため招待URLを生成できません。環境変数を設定してください。",
-    );
+  // 1. 明示設定を優先
+  const explicit = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/+$/, "");
+  if (explicit) return `${explicit}/register?token=${token}`;
+
+  // 2. Replit 公開ドメインにフォールバック（REPLIT_DOMAINS = "domain1.repl.co,domain2..."）
+  const replitDomains = (process.env.REPLIT_DOMAINS ?? "").trim();
+  if (replitDomains) {
+    const first = replitDomains.split(",")[0]?.trim();
+    if (first) return `https://${first}/register?token=${token}`;
   }
-  return `${base}/register?token=${token}`;
+
+  throw new Error(
+    "アプリのURLを自動取得できませんでした。NEXT_PUBLIC_APP_URL 環境変数を設定してください。",
+  );
 }
 
 /**
