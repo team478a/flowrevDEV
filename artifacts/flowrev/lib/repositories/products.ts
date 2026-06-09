@@ -35,6 +35,7 @@ export interface UpdateProductInput {
   price?: number;
   priceType?: string;
   recurringInterval?: string;
+  thumbnailUrl?: string;
   category?: string;
   status?: string;
 }
@@ -140,6 +141,7 @@ export async function updateProduct(
       ...(input.recurringInterval !== undefined && {
         recurring_interval: input.recurringInterval,
       }),
+      ...(input.thumbnailUrl !== undefined && { thumbnail_url: input.thumbnailUrl }),
       ...(input.category !== undefined && { category: input.category }),
       ...(input.status !== undefined && { status: input.status }),
       updated_at: new Date().toISOString(),
