@@ -9,7 +9,12 @@ import {
 } from "../actions";
 import type { PlanOption } from "@/lib/repositories/plans";
 
-const initialState: CreateInvitationState = { error: null, inviteUrl: null };
+const initialState: CreateInvitationState = {
+  error: null,
+  inviteUrl: null,
+  emailSent: false,
+  emailError: null,
+};
 
 const inputClass =
   "h-11 rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring";
@@ -28,7 +33,15 @@ function SubmitButton() {
   );
 }
 
-function InviteResult({ url }: { url: string }) {
+function InviteResult({
+  url,
+  emailSent,
+  emailError,
+}: {
+  url: string;
+  emailSent: boolean;
+  emailError: string | null;
+}) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -42,8 +55,15 @@ function InviteResult({ url }: { url: string }) {
   return (
     <div className="flex flex-col gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3">
       <p className="text-sm font-medium text-emerald-800">
-        招待を作成しました。以下のURLを相手に共有してください（7日間有効）。
+        {emailSent
+          ? "招待を作成し、メールを送信しました（7日間有効）。"
+          : "招待を作成しました（7日間有効）。"}
       </p>
+      {!emailSent && emailError && (
+        <p className="text-xs text-amber-700">
+          メール送信に失敗しました（{emailError}）。下記URLを手動で共有してください。
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <input
           readOnly
@@ -58,9 +78,6 @@ function InviteResult({ url }: { url: string }) {
           {copied ? "コピー済み" : "コピー"}
         </button>
       </div>
-      <p className="text-xs text-emerald-700">
-        ※メール送信は今後対応予定です。現状はこのURLを手動で共有してください。
-      </p>
     </div>
   );
 }
@@ -147,7 +164,13 @@ export function InvitationForm({ plans }: { plans: PlanOption[] }) {
         </div>
       </form>
 
-      {state?.inviteUrl && <InviteResult url={state.inviteUrl} />}
+      {state?.inviteUrl && (
+        <InviteResult
+          url={state.inviteUrl}
+          emailSent={state.emailSent}
+          emailError={state.emailError}
+        />
+      )}
     </div>
   );
 }
