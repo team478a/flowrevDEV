@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { listWhiteLabels } from "@/lib/repositories/white-labels";
-import { requireSystemAdmin } from "@/features/admin/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,22 +13,18 @@ function formatDate(value: string | null): string {
 }
 
 export default async function WhiteLabelsPage() {
-  await requireSystemAdmin();
   const items = await listWhiteLabels();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-6 py-12">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <Link
-            href="/admin/dashboard"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← 管理ダッシュボード
-          </Link>
+        <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             ホワイトラベル管理
           </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            事業者ブランドとオーナーアカウントを管理します。
+          </p>
         </div>
         <Link
           href="/admin/white-labels/new"
@@ -87,6 +82,6 @@ export default async function WhiteLabelsPage() {
           </table>
         </div>
       )}
-    </main>
+    </div>
   );
 }

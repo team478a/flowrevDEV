@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { EmailSettingsForm } from "@/features/admin/components/email-settings-form";
 import { getHqEmailSettingMasked } from "@/lib/repositories/email-settings";
-import { requireSystemAdmin } from "@/features/admin/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +9,10 @@ export const metadata = {
 };
 
 export default async function EmailSettingsPage() {
-  await requireSystemAdmin();
   const current = await getHqEmailSettingMasked();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-12">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="flex flex-col gap-1">
         <Link
           href="/admin/dashboard"
@@ -33,6 +31,6 @@ export default async function EmailSettingsPage() {
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <EmailSettingsForm current={current} />
       </div>
-    </main>
+    </div>
   );
 }

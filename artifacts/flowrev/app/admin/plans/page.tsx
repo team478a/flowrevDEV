@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { listPlansFull } from "@/lib/repositories/plans";
-import { requireSystemAdmin } from "@/features/admin/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,15 +8,16 @@ export const metadata = {
 };
 
 export default async function PlansPage() {
-  await requireSystemAdmin();
   const items = await listPlansFull();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-6 py-12">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">プラン管理</h1>
-          <p className="text-sm text-muted-foreground">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            プラン管理
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             ホワイトラベル事業者に割り当てるプランを管理します。
           </p>
         </div>
@@ -34,7 +34,7 @@ export default async function PlansPage() {
           プランがまだありません。「新規作成」から追加してください。
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-input">
+        <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
@@ -45,9 +45,9 @@ export default async function PlansPage() {
                 <th className="px-4 py-3 text-right font-medium">顧客</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {items.map((p) => (
-                <tr key={p.id} className="border-t border-input">
+                <tr key={p.id} className="bg-card">
                   <td className="px-4 py-3 font-medium">{p.name}</td>
                   <td className="px-4 py-3 text-right">
                     ¥{p.priceMonthly.toLocaleString()}
@@ -67,13 +67,6 @@ export default async function PlansPage() {
           </table>
         </div>
       )}
-
-      <Link
-        href="/admin/dashboard"
-        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-      >
-        ← ダッシュボードへ戻る
-      </Link>
-    </main>
+    </div>
   );
 }

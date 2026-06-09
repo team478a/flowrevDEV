@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { PlanForm } from "@/features/admin/components/plan-form";
-import { requireSystemAdmin } from "@/features/admin/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,25 +8,24 @@ export const metadata = {
 };
 
 export default async function NewPlanPage() {
-  await requireSystemAdmin();
-
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-12">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">プラン作成</h1>
-        <p className="text-sm text-muted-foreground">
-          新しいプランを作成します。
-        </p>
+        <Link
+          href="/admin/plans"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← プラン一覧
+        </Link>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          プラン作成
+        </h1>
+        <p className="text-sm text-muted-foreground">新しいプランを作成します。</p>
       </div>
 
-      <PlanForm />
-
-      <Link
-        href="/admin/plans"
-        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-      >
-        ← プラン一覧へ戻る
-      </Link>
-    </main>
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <PlanForm />
+      </div>
+    </div>
   );
 }

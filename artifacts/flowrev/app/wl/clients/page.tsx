@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { listInvitations } from "@/lib/repositories/invitations";
-import { requireWhiteLabelOwner } from "@/features/wl/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +19,16 @@ function formatDate(value: string | null): string {
 }
 
 export default async function ClientsPage() {
-  await requireWhiteLabelOwner();
   const invitations = await listInvitations();
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-6 py-12">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">クライアント管理</h1>
-          <p className="text-sm text-muted-foreground">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            クライアント管理
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             クライアントを招待し、招待状況を確認します。
           </p>
         </div>
@@ -45,7 +45,7 @@ export default async function ClientsPage() {
           招待がまだありません。「招待を作成」から始めてください。
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-input">
+        <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
@@ -56,29 +56,37 @@ export default async function ClientsPage() {
                 <th className="px-4 py-3 font-medium">有効期限</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {invitations.map((inv) => (
-                <tr key={inv.id} className="border-t border-input">
+                <tr key={inv.id} className="bg-card">
                   <td className="px-4 py-3 font-medium">{inv.clientName}</td>
-                  <td className="px-4 py-3">{inv.representativeName ?? "—"}</td>
-                  <td className="px-4 py-3">{inv.email}</td>
-                  <td className="px-4 py-3">
-                    {STATUS_LABEL[inv.status] ?? inv.status}
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {inv.representativeName ?? "—"}
                   </td>
-                  <td className="px-4 py-3">{formatDate(inv.expiresAt)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{inv.email}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={[
+                        "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+                        inv.status === "accepted"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : inv.status === "expired"
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-amber-100 text-amber-700",
+                      ].join(" ")}
+                    >
+                      {STATUS_LABEL[inv.status] ?? inv.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {formatDate(inv.expiresAt)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-
-      <Link
-        href="/wl/dashboard"
-        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-      >
-        ← ダッシュボードへ戻る
-      </Link>
-    </main>
+    </div>
   );
 }
