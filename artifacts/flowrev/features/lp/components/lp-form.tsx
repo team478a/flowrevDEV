@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AiGenerateButton } from "@/features/ai/components/ai-generate-button";
 import type { LpActionState } from "@/features/lp/actions";
 import type { LandingPageRow } from "@/lib/repositories/landing-pages";
 import type { ProductRow } from "@/lib/repositories/products";
@@ -45,6 +47,10 @@ export function LpForm({
   successPath,
 }: LpFormProps) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [htmlContent, setHtmlContent] = useState(
+    defaultValues?.htmlContent ?? "",
+  );
   const [state, formAction] = useFormState(action, initialState);
 
   useEffect(() => {
@@ -54,7 +60,11 @@ export function LpForm({
   }, [state.success, router, successPath]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 max-w-2xl">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="flex flex-col gap-5 max-w-2xl"
+    >
       {state.error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
           {state.error}
@@ -129,13 +139,29 @@ export function LpForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="htmlContent">HTML本文</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="htmlContent">HTML本文</Label>
+          <AiGenerateButton
+            endpoint="/api/ai/generate-lp"
+            buildPayload={() => {
+              const fd = formRef.current
+                ? new FormData(formRef.current)
+                : new FormData();
+              const title = String(fd.get("title") ?? "");
+              const productId = String(fd.get("productId") ?? "");
+              const product = products.find((p) => p.id === productId);
+              return { title, productName: product?.name ?? "" };
+            }}
+            onGenerated={(text) => setHtmlContent(text)}
+          />
+        </div>
         <Textarea
           id="htmlContent"
           name="htmlContent"
           placeholder="<h1>見出し</h1><p>本文</p>"
           rows={12}
-          defaultValue={defaultValues?.htmlContent ?? ""}
+          value={htmlContent}
+          onChange={(e) => setHtmlContent(e.target.value)}
           className="font-mono text-sm"
         />
         <p className="text-xs text-muted-foreground">

@@ -19,8 +19,9 @@ When the user confirms it has been executed, remove the entry.
 | `supabase/migrations/0005_scenarios.sql` | `follow_scenarios` + `scenario_steps` + `scenario_logs` + RLS + インデックス | `/scenarios` 一覧・作成・編集・ステップ管理 | **未実行** |
 | `supabase/migrations/0006_customers.sql` | `customers` + RLS（3ポリシー）+ インデックス | `/customers` 一覧・登録・詳細編集 | **未実行** |
 | `supabase/migrations/0007_members.sql` | `courses` + `lessons` + `lesson_progress` + RLS（client_owner 操作）+ インデックス | `/members` 一覧・コース作成・編集・レッスン管理 | **未実行** |
+| `supabase/migrations/0008_ai_rls.sql` | `ai_provider_settings` に RLS ポリシー追加（system_admin：全操作） | `/admin/settings/ai`、`/api/ai/*` 全AI生成エンドポイント | **未実行** |
 
-**注意**: 実行順は 0002 → 0003 → 0004 → 0005 → 0006 → 0007 の順。各マイグレーションは前のものに依存している。
+**注意**: 実行順は 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 の順。各マイグレーションは前のものに依存している。
 
 **Why:** DDL は PostgREST 経由では実行不可。ユーザーが Supabase ダッシュボード SQL Editor で手動実行する必要がある。未実行のまま該当ページを開くと「取得に失敗しました」エラーが表示される（他ページへの影響なし）。
 

@@ -9,6 +9,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "ホワイトラベル", href: "/admin/white-labels", icon: "🏷️" },
   { label: "プラン管理", href: "/admin/plans", icon: "📋" },
   { label: "メール設定", href: "/admin/settings/email", icon: "✉️" },
+  { label: "AI設定", href: "/admin/settings/ai", icon: "✨" },
 ];
 
 export default async function AdminLayout({

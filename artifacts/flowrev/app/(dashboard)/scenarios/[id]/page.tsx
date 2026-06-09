@@ -69,6 +69,7 @@ export default async function EditScenarioPage({ params }: Props) {
         </h2>
         <StepEditor
           scenarioId={scenario.id}
+          scenarioName={scenario.name}
           steps={steps}
           addAction={addStepAction}
           updateAction={updateStepAction}

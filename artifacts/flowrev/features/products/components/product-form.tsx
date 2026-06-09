@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AiGenerateButton } from "@/features/ai/components/ai-generate-button";
 import type { ProductActionState } from "@/features/products/actions";
 import type { ProductRow } from "@/lib/repositories/products";
 
@@ -45,6 +47,10 @@ export function ProductForm({
   successPath,
 }: ProductFormProps) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [description, setDescription] = useState(
+    defaultValues?.description ?? "",
+  );
   const [state, formAction] = useFormState(action, initialState);
 
   useEffect(() => {
@@ -54,7 +60,11 @@ export function ProductForm({
   }, [state.success, router, successPath]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 max-w-xl">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="flex flex-col gap-5 max-w-xl"
+    >
       {state.error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
           {state.error}
@@ -73,13 +83,29 @@ export function ProductForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="description">説明</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="description">説明</Label>
+          <AiGenerateButton
+            endpoint="/api/ai/generate-product"
+            buildPayload={() => {
+              const fd = formRef.current
+                ? new FormData(formRef.current)
+                : new FormData();
+              return {
+                name: String(fd.get("name") ?? ""),
+                category: String(fd.get("category") ?? ""),
+              };
+            }}
+            onGenerated={(text) => setDescription(text)}
+          />
+        </div>
         <Textarea
           id="description"
           name="description"
           placeholder="商品の説明を入力してください"
           rows={4}
-          defaultValue={defaultValues?.description ?? ""}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
         />
       </div>
 

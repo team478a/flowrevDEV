@@ -3,11 +3,13 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AiGenerateButton } from "@/features/ai/components/ai-generate-button";
 
 export interface StepFormData {
   delayDays: string;
   subject: string;
   body: string;
+  scenarioName?: string;
 }
 
 export function emptyStepForm(): StepFormData {
@@ -44,7 +46,17 @@ export function StepFormFields({ values, onChange }: StepFormFieldsProps) {
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label>本文 *</Label>
+        <div className="flex items-center justify-between">
+          <Label>本文 *</Label>
+          <AiGenerateButton
+            endpoint="/api/ai/generate-follow"
+            buildPayload={() => ({
+              subject: values.subject,
+              scenarioName: values.scenarioName ?? "",
+            })}
+            onGenerated={(text) => onChange("body", text)}
+          />
+        </div>
         <Textarea
           value={values.body}
           onChange={(e) => onChange("body", e.target.value)}

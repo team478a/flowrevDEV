@@ -18,6 +18,7 @@ import {
 
 interface StepEditorProps {
   scenarioId: string;
+  scenarioName?: string;
   steps: StepRow[];
   addAction: typeof addStepAction;
   updateAction: typeof updateStepAction;
@@ -44,6 +45,7 @@ function buildFormData(values: StepFormData): FormData {
 
 export function StepEditor({
   scenarioId,
+  scenarioName,
   steps,
   addAction,
   updateAction,
@@ -53,13 +55,13 @@ export function StepEditor({
   const [isPending, startTransition] = useTransition();
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState<StepFormData>(emptyStepForm());
+  const [addForm, setAddForm] = useState<StepFormData>({ ...emptyStepForm(), scenarioName });
   const [editForm, setEditForm] = useState<StepFormData>(emptyStepForm());
   const [error, setError] = useState<string | null>(null);
 
   function startEdit(step: StepRow) {
     setEditingStepId(step.id);
-    setEditForm(stepToForm(step));
+    setEditForm({ ...stepToForm(step), scenarioName });
     setError(null);
   }
 
