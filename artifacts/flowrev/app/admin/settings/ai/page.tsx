@@ -68,7 +68,13 @@ export default async function AiSettingsPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <AiSettingsForm current={current} action={saveAiSettingAction} />
+        <AiSettingsForm
+          current={current}
+          action={saveAiSettingAction}
+          keyLabel="Anthropic API キー"
+          keyPlaceholder="sk-ant-..."
+          modelPlaceholder="claude-haiku-4-5-20251001"
+        />
       </div>
     </div>
   );
