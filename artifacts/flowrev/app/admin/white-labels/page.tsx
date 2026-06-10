@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listWhiteLabels } from "@/lib/repositories/white-labels";
+import { WhiteLabelDeleteButton } from "@/features/admin/components/white-label-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function WhiteLabelsPage() {
           ホワイトラベルはまだ登録されていません。
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
@@ -48,6 +49,7 @@ export default async function WhiteLabelsPage() {
                 <th className="px-4 py-3 font-medium">プラン</th>
                 <th className="px-4 py-3 font-medium">状態</th>
                 <th className="px-4 py-3 font-medium">作成日</th>
+                <th className="px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -75,6 +77,20 @@ export default async function WhiteLabelsPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDate(wl.createdAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/white-labels/${wl.id}/edit`}
+                        className="inline-flex h-7 items-center rounded-md border border-input bg-background px-2 text-xs font-medium transition-colors hover:bg-accent"
+                      >
+                        編集
+                      </Link>
+                      <WhiteLabelDeleteButton
+                        id={wl.id}
+                        brandName={wl.brandName}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

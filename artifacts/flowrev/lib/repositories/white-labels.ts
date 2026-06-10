@@ -60,6 +60,92 @@ export async function listWhiteLabels(): Promise<WhiteLabelListItem[]> {
   });
 }
 
+export interface WhiteLabelDetail {
+  id: string;
+  brandName: string;
+  brandColor: string | null;
+  status: string;
+  planId: string | null;
+  ownerUserId: string | null;
+}
+
+export interface UpdateWhiteLabelInput {
+  brandName?: string;
+  brandColor?: string;
+  planId?: string | null;
+  status?: string;
+}
+
+/**
+ * ホワイトラベルを1件取得する（管理者クライアント）。
+ */
+export async function getWhiteLabel(id: string): Promise<WhiteLabelDetail | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("white_labels")
+    .select("id, brand_name, brand_color, status, plan_id, owner_user_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(`取得に失敗しました: ${error.message}`);
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    brandName: data.brand_name as string,
+    brandColor: (data.brand_color as string) ?? null,
+    status: (data.status as string) ?? "active",
+    planId: (data.plan_id as string) ?? null,
+    ownerUserId: (data.owner_user_id as string) ?? null,
+  };
+}
+
+/**
+ * ホワイトラベルを更新する（管理者クライアント）。
+ */
+export async function updateWhiteLabel(
+  id: string,
+  input: UpdateWhiteLabelInput,
+): Promise<void> {
+  const admin = createAdminClient();
+  const payload: Record<string, unknown> = {};
+  if (input.brandName !== undefined) payload.brand_name = input.brandName;
+  if (input.brandColor !== undefined) payload.brand_color = input.brandColor;
+  if (input.planId !== undefined) payload.plan_id = input.planId ?? null;
+  if (input.status !== undefined) payload.status = input.status;
+
+  const { error } = await admin
+    .from("white_labels")
+    .update(payload)
+    .eq("id", id);
+
+  if (error) throw new Error(`更新に失敗しました: ${error.message}`);
+}
+
+/**
+ * ホワイトラベルとオーナーユーザーを削除する（管理者クライアント）。
+ */
+export async function deleteWhiteLabel(id: string): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: wl } = await admin
+    .from("white_labels")
+    .select("owner_user_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error: wlError } = await admin
+    .from("white_labels")
+    .delete()
+    .eq("id", id);
+
+  if (wlError) throw new Error(`削除に失敗しました: ${wlError.message}`);
+
+  if (wl?.owner_user_id) {
+    await admin.auth.admin.deleteUser(wl.owner_user_id as string);
+  }
+}
+
 /**
  * ロールバック（補償処理）の失敗を集約し、手動確認が必要な旨を付記する。
  * 補償が全て成功なら空文字を返す。

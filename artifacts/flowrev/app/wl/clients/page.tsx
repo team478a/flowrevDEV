@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listInvitations } from "@/lib/repositories/invitations";
+import { InvitationRowActions } from "@/features/invitations/components/invitation-row-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export default async function ClientsPage() {
                 <th className="px-4 py-3 font-medium">メール</th>
                 <th className="px-4 py-3 font-medium">状態</th>
                 <th className="px-4 py-3 font-medium">有効期限</th>
+                <th className="px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -80,6 +82,14 @@ export default async function ClientsPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {formatDate(inv.expiresAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <InvitationRowActions
+                      id={inv.id}
+                      email={inv.email}
+                      clientName={inv.clientName}
+                      status={inv.status}
+                    />
                   </td>
                 </tr>
               ))}

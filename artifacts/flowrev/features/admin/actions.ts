@@ -4,7 +4,11 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/features/auth/session";
-import { createWhiteLabel } from "@/lib/repositories/white-labels";
+import {
+  createWhiteLabel,
+  updateWhiteLabel,
+  deleteWhiteLabel,
+} from "@/lib/repositories/white-labels";
 import { createPlan } from "@/lib/repositories/plans";
 import { upsertHqEmailSetting } from "@/lib/repositories/email-settings";
 
@@ -188,4 +192,87 @@ export async function saveEmailSettingAction(
 
   revalidatePath("/admin/settings/email");
   return { error: null, success: true };
+}
+
+const wlUpdateSchema = z.object({
+  brandName: z.string().trim().min(1, "ブランド名を入力してください。"),
+  brandColor: z.string().trim().optional(),
+  planId: z.string().uuid().optional(),
+  status: z.enum(["active", "suspended"]),
+});
+
+export interface UpdateWhiteLabelState {
+  error: string | null;
+  success: boolean;
+}
+
+/**
+ * ホワイトラベルを更新するサーバーアクション（system_admin のみ）。
+ */
+export async function updateWhiteLabelAction(
+  id: string,
+  _prevState: UpdateWhiteLabelState,
+  formData: FormData,
+): Promise<UpdateWhiteLabelState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "system_admin") {
+    return { error: "この操作を行う権限がありません。", success: false };
+  }
+
+  const planIdRaw = String(formData.get("planId") ?? "").trim();
+  const parsed = wlUpdateSchema.safeParse({
+    brandName: formData.get("brandName"),
+    brandColor: String(formData.get("brandColor") ?? "").trim() || undefined,
+    planId: planIdRaw || undefined,
+    status: formData.get("status"),
+  });
+
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。",
+      success: false,
+    };
+  }
+
+  try {
+    await updateWhiteLabel(id, {
+      brandName: parsed.data.brandName,
+      brandColor: parsed.data.brandColor,
+      planId: parsed.data.planId ?? null,
+      status: parsed.data.status,
+    });
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "更新に失敗しました。",
+      success: false,
+    };
+  }
+
+  revalidatePath("/admin/white-labels");
+  redirect("/admin/white-labels");
+}
+
+export interface DeleteWhiteLabelState {
+  error: string | null;
+}
+
+/**
+ * ホワイトラベルを削除するサーバーアクション（system_admin のみ）。
+ */
+export async function deleteWhiteLabelAction(
+  id: string,
+): Promise<DeleteWhiteLabelState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "system_admin") {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  try {
+    await deleteWhiteLabel(id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "削除に失敗しました。" };
+  }
+
+  revalidatePath("/admin/white-labels");
+  return { error: null };
 }

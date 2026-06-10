@@ -3,7 +3,11 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getSessionProfile } from "@/features/auth/session";
-import { createInvitation } from "@/lib/repositories/invitations";
+import {
+  createInvitation,
+  deleteInvitation,
+  resendInvitationToken,
+} from "@/lib/repositories/invitations";
 import { sendInvitationEmail } from "@/lib/email/send-invite";
 
 const schema = z.object({
@@ -114,6 +118,90 @@ export async function createInvitationAction(
     emailError =
       e instanceof Error ? e.message : "招待メールの送信に失敗しました。";
     console.error("[invitation] email send failed:", emailError);
+  }
+
+  revalidatePath("/wl/clients");
+  return { error: null, inviteUrl, emailSent, emailError };
+}
+
+export interface InvitationMutationState {
+  error: string | null;
+  inviteUrl?: string | null;
+  emailSent?: boolean;
+  emailError?: string | null;
+}
+
+/**
+ * 招待を削除する（pending / expired のみ）。
+ */
+export async function deleteInvitationAction(
+  _prevState: InvitationMutationState,
+  formData: FormData,
+): Promise<InvitationMutationState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "white_label_owner" || !session.whiteLabelId) {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { error: "IDが不正です。" };
+
+  try {
+    await deleteInvitation(id, session.whiteLabelId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "削除に失敗しました。" };
+  }
+
+  revalidatePath("/wl/clients");
+  return { error: null };
+}
+
+/**
+ * 招待を再送する（新トークン発行 + メール送信）。
+ */
+export async function resendInvitationAction(
+  _prevState: InvitationMutationState,
+  formData: FormData,
+): Promise<InvitationMutationState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "white_label_owner" || !session.whiteLabelId) {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const clientName = String(formData.get("clientName") ?? "").trim();
+  if (!id) return { error: "IDが不正です。" };
+
+  let inviteUrl: string;
+  try {
+    const { token } = await resendInvitationToken(id, session.whiteLabelId);
+    const explicit = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim().replace(/\/+$/, "");
+    const replitDomains = (process.env.REPLIT_DOMAINS ?? "").trim();
+    if (explicit) {
+      inviteUrl = `${explicit}/register?token=${token}`;
+    } else if (replitDomains) {
+      const first = replitDomains.split(",")[0]?.trim();
+      inviteUrl = `https://${first}/register?token=${token}`;
+    } else {
+      return { error: "NEXT_PUBLIC_APP_URL 環境変数を設定してください。" };
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "再送に失敗しました。" };
+  }
+
+  let emailSent = false;
+  let emailError: string | null = null;
+  try {
+    await sendInvitationEmail({
+      whiteLabelId: session.whiteLabelId,
+      toEmail: email,
+      clientName,
+      inviteUrl,
+    });
+    emailSent = true;
+  } catch (e) {
+    emailError = e instanceof Error ? e.message : "メール送信に失敗しました。";
   }
 
   revalidatePath("/wl/clients");

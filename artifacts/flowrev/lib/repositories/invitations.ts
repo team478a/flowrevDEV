@@ -164,6 +164,57 @@ export async function claimInvitation(token: string): Promise<boolean> {
 }
 
 /**
+ * 招待を削除する（pending / expired のみ。accepted は削除不可）。
+ * RLS でテナント分離済みのセッションクライアントを使う。
+ */
+export async function deleteInvitation(
+  id: string,
+  whiteLabelId: string,
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("invitations")
+    .delete()
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId)
+    .neq("status", "accepted");
+
+  if (error) {
+    throw new Error(`招待の削除に失敗しました: ${error.message}`);
+  }
+}
+
+/**
+ * 招待トークンを更新し、有効期限を延長する（再送用）。
+ * accepted 済みの招待は対象外。新しいトークンを返す。
+ */
+export async function resendInvitationToken(
+  id: string,
+  whiteLabelId: string,
+): Promise<{ token: string }> {
+  const supabase = createClient();
+  const token = generateInviteToken();
+  const expiresAt = new Date(
+    Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data, error } = await supabase
+    .from("invitations")
+    .update({ token, expires_at: expiresAt, status: "pending" })
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId)
+    .neq("status", "accepted")
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(`招待トークンの更新に失敗しました: ${error?.message ?? "対象が見つかりません"}`);
+  }
+
+  return { token };
+}
+
+/**
  * 招待を pending に戻す（受諾処理が途中失敗した際の補償用, admin クライアント）。
  * 補償失敗は呼び出し側で監査ログ化できるよう error を返す。
  */
