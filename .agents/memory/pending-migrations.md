@@ -8,21 +8,21 @@ description: Migrations written to repo but NOT yet executed in Supabase SQL Edi
 ## Rule
 Every time a new `supabase/migrations/00XX_*.sql` is created, add it here.
 When the user confirms it has been executed, remove the entry.
+DB の実適用状況は service_role キーで直接確認できる（テーブル=REST 200、関数=RPC 404判定、ポリシー=pg_policies）。
 
-## Pending
+## 適用状況（2026-06-10 実DB確認）
 
-| ファイル | テーブル | 影響ページ | 状態 |
-|---|---|---|---|
-| `supabase/migrations/0002_products.sql` | `products` + RLS + インデックス | `/products` 一覧・作成・編集 | **未実行** |
-| `supabase/migrations/0003_landing_pages.sql` | `landing_pages` + RLS + インデックス | `/lp` 一覧・作成・編集、`/p/[slug]` 公開ページ | **未実行** |
-| `supabase/migrations/0004_storage.sql` | `product-images` Storage バケット + ポリシー | `/products/[id]` サムネイルアップロード | **未実行** |
-| `supabase/migrations/0005_scenarios.sql` | `follow_scenarios` + `scenario_steps` + `scenario_logs` + RLS + インデックス | `/scenarios` 一覧・作成・編集・ステップ管理 | **未実行** |
-| `supabase/migrations/0006_customers.sql` | `customers` + RLS（3ポリシー）+ インデックス | `/customers` 一覧・登録・詳細編集 | **未実行** |
-| `supabase/migrations/0007_members.sql` | `courses` + `lessons` + `lesson_progress` + RLS（client_owner 操作）+ インデックス | `/members` 一覧・コース作成・編集・レッスン管理 | **未実行** |
-| `supabase/migrations/0008_ai_rls.sql` | `ai_provider_settings` に RLS ポリシー追加（system_admin：全操作） | `/admin/settings/ai`、`/api/ai/*` 全AI生成エンドポイント | **未実行** |
+- ✅ 全23テーブル作成済み
+- ✅ RLS ヘルパー関数（get_user_role / get_user_client_id / get_user_white_label_id）作成済み
+- ✅ RLS ポリシー（0007_rls_policies.sql）= 15テーブルに適用済み
 
-**注意**: 実行順は 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 の順。各マイグレーションは前のものに依存している。
+## Pending（残り3つ）
 
-**Why:** DDL は PostgREST 経由では実行不可。ユーザーが Supabase ダッシュボード SQL Editor で手動実行する必要がある。未実行のまま該当ページを開くと「取得に失敗しました」エラーが表示される（他ページへの影響なし）。
+| ファイル | 内容 | 判定根拠 |
+|---|---|---|
+| `supabase/migrations/0004_storage.sql` | `product-images` Storage バケット + ポリシー | Storage バケット一覧が空 `[]` |
+| `supabase/migrations/0008_ai_rls.sql` | `ai_provider_settings` の RLS ポリシー | pg_policies 一覧に ai_provider_settings が無い |
+| `supabase/migrations/0008_user_trigger.sql` | `handle_new_user` トリガー（auth.users→user_profiles 自動生成） | RPC `handle_new_user` が HTTP 404 |
 
+**Why:** DDL は PostgREST 経由では実行不可。ユーザーが Supabase ダッシュボード SQL Editor で手動実行する必要がある。
 **How to apply:** Supabase ダッシュボード → SQL Editor → ファイル内容を貼り付けて実行 → ここから該当行を削除する。
