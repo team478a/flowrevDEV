@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 interface Customer {
   id: string;
@@ -16,10 +14,9 @@ interface RecentCustomersProps {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("ja-JP", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   });
 }
 
@@ -29,51 +26,70 @@ function sourceLabel(s: string): string {
   return "手動";
 }
 
+function sourceStyle(s: string): string {
+  if (s === "lp") return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  if (s === "import") return "bg-sky-50 text-sky-700 border border-sky-200";
+  return "bg-slate-100 text-slate-600 border border-slate-200";
+}
+
 export function RecentCustomers({ customers }: RecentCustomersProps) {
   return (
-    <section className="rounded-xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between px-5 py-4 border-b">
-        <h2 className="text-sm font-semibold flex items-center gap-2">
-          <UserPlus className="h-4 w-4 text-muted-foreground" />
-          直近の顧客登録
-        </h2>
-        <Link href="/customers" className="text-xs text-primary hover:underline">
-          すべて見る →
+    <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+        <h2 className="text-base font-semibold text-slate-900">最近の顧客登録</h2>
+        <Link href="/customers" className="text-sm font-medium text-emerald-600 hover:text-emerald-700">
+          すべて見る
         </Link>
       </div>
 
       {customers.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-muted-foreground text-center">
+        <p className="px-6 py-8 text-sm text-slate-400 text-center">
           まだ顧客がいません。
         </p>
       ) : (
-        <ul className="divide-y divide-border">
-          {customers.map((c) => (
-            <li key={c.id}>
-              <Link
-                href={`/customers/${c.id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-accent/40 transition-colors"
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">
-                    {c.name ?? (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{c.email}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline" className="text-xs">
-                    {sourceLabel(c.source)}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-6 py-3 font-medium">名前</th>
+                <th className="px-6 py-3 font-medium">登録元</th>
+                <th className="px-6 py-3 font-medium">登録日</th>
+                <th className="px-6 py-3 font-medium text-right">詳細</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {customers.map((c) => (
+                <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-slate-900">
+                      {c.name ?? <span className="text-slate-400">—</span>}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">{c.email}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={[
+                      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                      sourceStyle(c.source),
+                    ].join(" ")}>
+                      {sourceLabel(c.source)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-slate-600">
                     {formatDate(c.createdAt)}
-                  </span>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <Link
+                      href={`/customers/${c.id}`}
+                      className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                    >
+                      詳細 →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

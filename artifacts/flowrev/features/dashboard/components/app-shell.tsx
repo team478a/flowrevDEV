@@ -22,9 +22,9 @@ export function AppShell({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-slate-50">
       {/* サイドバー（デスクトップ） */}
-      <aside className="hidden w-56 shrink-0 border-r border-border bg-card md:flex md:flex-col">
+      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
         <SidebarNav
           brand={brand}
           items={items}
@@ -35,7 +35,7 @@ export function AppShell({
           <form action={logout} className="w-full">
             <button
               type="submit"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
             >
               ログアウト
             </button>
@@ -52,7 +52,7 @@ export function AppShell({
       )}
       <aside
         className={[
-          "fixed inset-y-0 left-0 z-40 flex w-56 flex-col border-r border-border bg-card transition-transform duration-200 md:hidden",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
@@ -66,7 +66,7 @@ export function AppShell({
           <form action={logout} className="w-full">
             <button
               type="submit"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
             >
               ログアウト
             </button>
@@ -77,21 +77,21 @@ export function AppShell({
       {/* メインエリア */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* モバイルヘッダー */}
-        <header className="flex h-14 items-center border-b border-border bg-card px-4 md:hidden">
+        <header className="flex h-14 items-center border-b border-slate-200 bg-white px-4 md:hidden">
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="mr-3 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="mr-3 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             aria-label="メニューを開く"
           >
             <span className="block h-0.5 w-5 bg-current mb-1" />
             <span className="block h-0.5 w-5 bg-current mb-1" />
             <span className="block h-0.5 w-5 bg-current" />
           </button>
-          <span className="text-sm font-bold">{brand}</span>
+          <span className="text-sm font-bold text-emerald-600">{brand}</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </div>
   );
