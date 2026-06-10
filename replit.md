@@ -53,7 +53,8 @@
 
 - **`next dev` は Replit のポート検出に通らない**（起動はするが `DIDNT_OPEN_A_PORT` で失敗）。ワークフローは `serve`（`next build && next start`）で本番ビルドを配信する。コード変更はワークフロー再起動で反映（HMR なし）。詳細は `.agents/memory/nextjs-replit-port-detection.md`。
 - パッケージファイアウォールが古いパッチ版を 403 でブロックすることがある（例: `next@14.2.18`）。許可される版を探して固定する。
-- Next.js の `/api/*` は将来 api-server（`/api`）と衝突する。`/api` ルートが必要になった段階で api-server artifact を整理する。
+- api-server artifact は `/_apiserver` へ退避済み（旧 `/api`）。これにより flowrev の Next.js `/api/*` がプロキシで `/`（flowrev）へフォールスルーする。api-server を再び `/api` に戻すと flowrev の API が全て 404 になるので注意。
+- 公開（匿名）アクセスが必要な API ルートは flowrev の `lib/supabase/middleware.ts` の `PUBLIC_PREFIXES` に追加する（例: `/api/p` = 公開LPフォーム送信）。未追加だと匿名 POST が `/login` へ 307 リダイレクトされる。
 
 ## Pointers
 
