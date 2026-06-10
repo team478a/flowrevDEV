@@ -47,8 +47,12 @@ export function LpContactForm({ lpId }: LpContactFormProps) {
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <CheckCircle2 className="h-10 w-10 text-green-500" />
         <p className="text-lg font-semibold">ご登録ありがとうございます！</p>
-        <p className="text-sm text-muted-foreground">
-          担当者よりご連絡いたします。
+        <p className="text-sm text-gray-600 max-w-xs">
+          ご入力のメールアドレスにマイページへのご案内をお送りしました。
+          メールをご確認のうえ、パスワードを設定してログインしてください。
+        </p>
+        <p className="text-xs text-gray-400">
+          メールが届かない場合は迷惑メールフォルダをご確認ください。
         </p>
       </div>
     );

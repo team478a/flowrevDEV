@@ -79,6 +79,58 @@ export async function POST(req: NextRequest) {
     })
     .eq("id", lpId);
 
+  // Supabase Auth 招待メール送信（ベストエフォート）
+  // 新規ユーザー → 招待メールを送信し user_profiles / customers.user_id を設定
+  // 既存ユーザー → スキップ（既にログイン可能なため）
+  try {
+    const host =
+      req.headers.get("x-forwarded-host") ??
+      req.headers.get("host") ??
+      "localhost:3000";
+    const proto = req.headers.get("x-forwarded-proto") ?? "http";
+    const origin = `${proto}://${host}`;
+    const redirectTo = `${origin}/auth/callback?next=/my`;
+
+    const { data: inviteData, error: inviteError } =
+      await admin.auth.admin.inviteUserByEmail(email, {
+        redirectTo,
+        data: { role: "customer" },
+      });
+
+    const authUserId = inviteData?.user?.id;
+
+    if (authUserId) {
+      // user_profiles を作成（role=customer、テナント情報を付与）
+      await admin.from("user_profiles").upsert(
+        {
+          id: authUserId,
+          role: "customer",
+          display_name: name ?? null,
+          client_id: clientId,
+          white_label_id: whiteLabelId,
+        },
+        { onConflict: "id", ignoreDuplicates: true },
+      );
+
+      // customers レコードと Auth ユーザーをリンク
+      await admin
+        .from("customers")
+        .update({
+          user_id: authUserId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("email", email)
+        .eq("client_id", clientId);
+    } else if (inviteError) {
+      // "User already registered" 等はスキップ（既存アカウントは使えるため）
+      console.warn(
+        `[LP register] invite skipped for ${email}: ${inviteError.message}`,
+      );
+    }
+  } catch {
+    // 招待エラーは登録成功に影響させない
+  }
+
   // purchase トリガーのシナリオをエンキュー（ベストエフォート）
   try {
     const { data: customerRow } = await admin
