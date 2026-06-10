@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listWhiteLabels } from "@/lib/repositories/white-labels";
 import { WhiteLabelDeleteButton } from "@/features/admin/components/white-label-delete-button";
+import { WhiteLabelToggleStatusButton } from "@/features/admin/components/white-label-toggle-status-button";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,11 @@ export default async function WhiteLabelsPage() {
                       >
                         編集
                       </Link>
+                      <WhiteLabelToggleStatusButton
+                        id={wl.id}
+                        brandName={wl.brandName}
+                        currentStatus={wl.status}
+                      />
                       <WhiteLabelDeleteButton
                         id={wl.id}
                         brandName={wl.brandName}

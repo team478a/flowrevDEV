@@ -150,6 +150,76 @@ export async function createWLPlan(
 }
 
 /**
+ * WL プラン1件を取得する（管理者クライアント）。
+ */
+export async function getWLPlan(
+  id: string,
+  whiteLabelId: string,
+): Promise<PlanRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("plans")
+    .select("id, name, max_clients, max_products, max_customers, price_monthly, created_at")
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId)
+    .maybeSingle();
+
+  if (error) throw new Error(`取得に失敗しました: ${error.message}`);
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    maxClients: (data.max_clients as number) ?? 0,
+    maxProducts: (data.max_products as number) ?? 0,
+    maxCustomers: (data.max_customers as number) ?? 0,
+    priceMonthly: (data.price_monthly as number) ?? 0,
+    createdAt: (data.created_at as string) ?? null,
+  };
+}
+
+/**
+ * WL プランを更新する（管理者クライアント）。
+ */
+export async function updateWLPlan(
+  id: string,
+  whiteLabelId: string,
+  input: CreatePlanInput,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("plans")
+    .update({
+      name: input.name,
+      max_clients: input.maxClients,
+      max_products: input.maxProducts,
+      max_customers: input.maxCustomers,
+      price_monthly: input.priceMonthly,
+    })
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId);
+
+  if (error) throw new Error(`更新に失敗しました: ${error.message}`);
+}
+
+/**
+ * WL プランを削除する（管理者クライアント）。
+ */
+export async function deleteWLPlan(
+  id: string,
+  whiteLabelId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("plans")
+    .delete()
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId);
+
+  if (error) throw new Error(`削除に失敗しました: ${error.message}`);
+}
+
+/**
  * プランを作成する（管理者クライアント）。
  */
 export async function createPlan(

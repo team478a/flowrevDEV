@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireWhiteLabelOwner } from "@/features/wl/guard";
 import { listWLPlansFull } from "@/lib/repositories/plans";
+import { WLPlanRowActions } from "@/features/wl/components/wl-plan-row-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export default async function WLPlansPage() {
                 <th className="px-4 py-3 text-right font-medium">クライアント上限</th>
                 <th className="px-4 py-3 text-right font-medium">商品上限</th>
                 <th className="px-4 py-3 text-right font-medium">顧客上限</th>
+                <th className="px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -64,6 +66,9 @@ export default async function WLPlansPage() {
                   </td>
                   <td className="px-4 py-3 text-right text-muted-foreground">
                     {p.maxCustomers.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <WLPlanRowActions id={p.id} name={p.name} />
                   </td>
                 </tr>
               ))}

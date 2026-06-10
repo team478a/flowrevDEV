@@ -8,6 +8,7 @@ import {
   createWhiteLabel,
   updateWhiteLabel,
   deleteWhiteLabel,
+  toggleWhiteLabelStatus,
 } from "@/lib/repositories/white-labels";
 import { createPlan } from "@/lib/repositories/plans";
 import { upsertHqEmailSetting } from "@/lib/repositories/email-settings";
@@ -271,6 +272,38 @@ export async function deleteWhiteLabelAction(
     await deleteWhiteLabel(id);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "削除に失敗しました。" };
+  }
+
+  revalidatePath("/admin/white-labels");
+  return { error: null };
+}
+
+export interface ToggleWLStatusState {
+  error: string | null;
+}
+
+/**
+ * ホワイトラベルのステータスを切り替えるサーバーアクション（system_admin のみ）。
+ */
+export async function toggleWhiteLabelStatusAction(
+  _prevState: ToggleWLStatusState,
+  formData: FormData,
+): Promise<ToggleWLStatusState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "system_admin") {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim() as "active" | "suspended";
+  if (!id || !["active", "suspended"].includes(status)) {
+    return { error: "パラメータが不正です。" };
+  }
+
+  try {
+    await toggleWhiteLabelStatus(id, status);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "変更に失敗しました。" };
   }
 
   revalidatePath("/admin/white-labels");

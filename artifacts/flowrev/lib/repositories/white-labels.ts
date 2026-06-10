@@ -123,6 +123,22 @@ export async function updateWhiteLabel(
 }
 
 /**
+ * ホワイトラベルのステータスを切り替える（active ↔ suspended）。
+ */
+export async function toggleWhiteLabelStatus(
+  id: string,
+  status: "active" | "suspended",
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("white_labels")
+    .update({ status })
+    .eq("id", id);
+
+  if (error) throw new Error(`ステータス変更に失敗しました: ${error.message}`);
+}
+
+/**
  * ホワイトラベルとオーナーユーザーを削除する（管理者クライアント）。
  */
 export async function deleteWhiteLabel(id: string): Promise<void> {

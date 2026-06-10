@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/features/auth/session";
 import { createWLPlan } from "@/lib/repositories/plans";
 import { updateClient, toggleClientStatus } from "@/lib/repositories/clients";
+import { updateWLPlan, deleteWLPlan } from "@/lib/repositories/plans";
 
 const intField = (label: string) =>
   z
@@ -123,5 +124,69 @@ export async function toggleClientStatusAction(
   }
 
   revalidatePath("/wl/clients");
+  return { error: null };
+}
+
+export interface WLPlanActionState {
+  error: string | null;
+}
+
+/**
+ * WL プランを更新するサーバーアクション。
+ */
+export async function updateWLPlanAction(
+  id: string,
+  _prevState: WLPlanActionState,
+  formData: FormData,
+): Promise<WLPlanActionState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "white_label_owner" || !session.whiteLabelId) {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const parsed = planSchema.safeParse({
+    name: formData.get("name"),
+    priceMonthly: formData.get("priceMonthly"),
+    maxClients: formData.get("maxClients"),
+    maxProducts: formData.get("maxProducts"),
+    maxCustomers: formData.get("maxCustomers"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
+  }
+
+  try {
+    await updateWLPlan(id, session.whiteLabelId, parsed.data);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "更新に失敗しました。" };
+  }
+
+  revalidatePath("/wl/plans");
+  redirect("/wl/plans");
+}
+
+/**
+ * WL プランを削除するサーバーアクション。
+ */
+export async function deleteWLPlanAction(
+  _prevState: WLPlanActionState,
+  formData: FormData,
+): Promise<WLPlanActionState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "white_label_owner" || !session.whiteLabelId) {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { error: "IDが不正です。" };
+
+  try {
+    await deleteWLPlan(id, session.whiteLabelId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "削除に失敗しました。" };
+  }
+
+  revalidatePath("/wl/plans");
   return { error: null };
 }
