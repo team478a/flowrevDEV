@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- 1: コアテナントテーブル
 -- ============================================================
 
--- ① プラン
+-- ① プラン（white_label_id は white_labels 作成後に ALTER TABLE で追加）
 CREATE TABLE plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -39,6 +39,9 @@ CREATE TABLE white_labels (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- plans に white_label_id を追加（white_labels 作成後）
+ALTER TABLE plans ADD COLUMN white_label_id UUID REFERENCES white_labels(id) ON DELETE CASCADE;
 
 -- ③ クライアント
 CREATE TABLE clients (
@@ -471,6 +474,28 @@ CREATE POLICY "自分のプロフィール更新" ON user_profiles
   );
 
 CREATE POLICY "system_admin：プロフィール全操作" ON user_profiles
+  FOR ALL USING (get_user_role() = 'system_admin')
+  WITH CHECK (get_user_role() = 'system_admin');
+
+-- plans
+CREATE POLICY "white_label_owner：自テナントのプラン管理" ON plans
+  FOR ALL
+  USING (
+    white_label_id = get_user_white_label_id()
+    AND get_user_role() = 'white_label_owner'
+  )
+  WITH CHECK (
+    white_label_id = get_user_white_label_id()
+    AND get_user_role() = 'white_label_owner'
+  );
+
+CREATE POLICY "client_owner：所属プラン参照" ON plans
+  FOR SELECT USING (
+    white_label_id = get_user_white_label_id()
+    AND get_user_role() = 'client_owner'
+  );
+
+CREATE POLICY "system_admin：plans全操作" ON plans
   FOR ALL USING (get_user_role() = 'system_admin')
   WITH CHECK (get_user_role() = 'system_admin');
 
