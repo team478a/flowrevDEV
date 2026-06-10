@@ -81,25 +81,39 @@ export async function getLandingPage(id: string): Promise<LandingPageRow | null>
   return mapRow(data as Record<string, unknown>);
 }
 
+/** 公開ページ表示に必要な最小限のフィールド。 */
+export interface PublicLandingPage {
+  id: string;
+  title: string;
+  slug: string;
+  htmlContent: string | null;
+}
+
 /**
- * スラッグから公開LPを取得する（セッションクライアント・認証不要の公開ページ用）。
- * RLS ポリシー "public：published LP参照" が status='published' のみ許可するため、
- * 未ログインでも published レコードのみ返る。コードでも status チェックして二重防護。
+ * スラッグから公開LPを取得する（認証不要の公開ページ用）。
+ * 本体 landing_pages には anon ポリシーを付けず、公開列のみを返すビュー
+ * public_landing_pages（status='published' に限定済み）を参照する。
+ * これにより client_id / views / conversions 等の内部メタデータは anon に露出しない。
  */
 export async function getPublishedLandingPageBySlug(
   slug: string,
-): Promise<LandingPageRow | null> {
+): Promise<PublicLandingPage | null> {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("landing_pages")
-    .select(SELECT_COLS)
+    .from("public_landing_pages")
+    .select("id, title, slug, html_content")
     .eq("slug", slug)
-    .eq("status", "published")
     .maybeSingle();
 
   if (error) throw new Error(`LPの取得に失敗しました: ${error.message}`);
   if (!data) return null;
-  return mapRow(data as Record<string, unknown>);
+  const r = data as Record<string, unknown>;
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    slug: r.slug as string,
+    htmlContent: (r.html_content as string) ?? null,
+  };
 }
 
 /** LPを作成する。client_id / white_label_id はセッションから渡す。 */

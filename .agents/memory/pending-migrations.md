@@ -20,7 +20,7 @@ When the user confirms it has been executed (and it is verified against the live
 
 ## Pending
 
-なし（すべて適用済み）。
+- ⏳ `0009_public_lp_policy.sql` — 公開LP用ビュー `public_landing_pages`（必須）。未実行だと `/p/[slug]` が常に404。SQL Editor で実行が必要。
 
 ## How to verify against live DB（service_role キー使用）
 

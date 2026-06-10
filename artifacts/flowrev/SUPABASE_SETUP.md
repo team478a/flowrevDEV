@@ -268,6 +268,22 @@ ON CONFLICT (id) DO UPDATE SET role = 'system_admin';
 
 ---
 
+## Step 16 — 公開LPの匿名参照ビュー（必須）
+
+**ファイル:** `supabase/migrations/0009_public_lp_policy.sql`
+
+公開ページ `/p/[slug]` は未ログイン（anon ロール）でアクセスされます。Step 11 のポリシーには
+client_owner / white_label_owner 用しかないため、これを追加しないと **公開LPが常に 404 になります**。
+
+本体テーブルに anon ポリシーを付けると内部メタデータ（`client_id` / `views` / `conversions` 等）が
+公開鍵経由で漏れるため、**公開列のみを返すビュー `public_landing_pages` を介して anon に公開**します。
+
+```sql
+-- supabase/migrations/0009_public_lp_policy.sql の内容をコピーして実行
+```
+
+---
+
 ## 実行順チェックリスト
 
 | # | ファイル | 状態 |
@@ -287,6 +303,7 @@ ON CONFLICT (id) DO UPDATE SET role = 'system_admin';
 | 13 | `0008_user_trigger.sql` | ☐ |
 | 14 | Auth 設定（GUI） | ☐ |
 | 15 | 初期データ（任意） | ☐ |
+| 16 | `0009_public_lp_policy.sql`（公開LP必須） | ☐ |
 
 ---
 

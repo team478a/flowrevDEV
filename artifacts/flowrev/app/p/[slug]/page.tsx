@@ -11,12 +11,18 @@ interface Props {
 export const dynamic = "force-dynamic";
 
 /** 閲覧数をインクリメント（fire-and-forget、エラーは握りつぶす） */
-async function incrementViews(lpId: string, currentViews: number) {
+async function incrementViews(lpId: string) {
   try {
     const admin = createAdminClient();
+    const { data } = await admin
+      .from("landing_pages")
+      .select("views")
+      .eq("id", lpId)
+      .maybeSingle();
+    const current = ((data as Record<string, unknown> | null)?.views as number) ?? 0;
     await admin
       .from("landing_pages")
-      .update({ views: currentViews + 1 })
+      .update({ views: current + 1 })
       .eq("id", lpId);
   } catch {
     // 閲覧カウント失敗はページ表示に影響させない
@@ -35,7 +41,7 @@ export default async function PublicLpPage({ params }: Props) {
   if (!lp) notFound();
 
   // 閲覧数を非同期でカウントアップ（ページ返却を待たない）
-  void incrementViews(lp.id, lp.views);
+  void incrementViews(lp.id);
 
   return (
     <div className="min-h-screen bg-white">
