@@ -7,73 +7,17 @@ import {
   AlertTriangle,
   TrendingUp,
   Zap,
-  UserPlus,
 } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import { getDashboardStats, getRecentCustomers } from "@/lib/repositories/stats";
-import { Badge } from "@/components/ui/badge";
+import { KpiCard } from "@/features/dashboard/components/kpi-card";
+import { RecentCustomers } from "@/features/dashboard/components/recent-customers";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "ダッシュボード | FlowRev",
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("ja-JP", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function sourceLabel(s: string): string {
-  if (s === "lp") return "LP";
-  if (s === "import") return "インポート";
-  return "手動";
-}
-
-interface KpiCardProps {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  sub?: React.ReactNode;
-  warn?: boolean;
-}
-
-function KpiCard({ href, icon, label, value, sub, warn }: KpiCardProps) {
-  return (
-    <Link
-      href={href}
-      className={[
-        "flex flex-col gap-2 rounded-xl border bg-card p-5 shadow-sm transition-colors hover:bg-accent/50",
-        warn ? "border-amber-300 bg-amber-50/60" : "border-border",
-      ].join(" ")}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <span className={warn ? "text-amber-500" : "text-muted-foreground"}>
-          {icon}
-        </span>
-      </div>
-      <span
-        className={[
-          "text-3xl font-bold",
-          warn ? "text-amber-700" : "text-foreground",
-        ].join(" ")}
-      >
-        {value.toLocaleString()}
-      </span>
-      {sub && (
-        <span className="text-xs text-muted-foreground">{sub}</span>
-      )}
-    </Link>
-  );
-}
 
 export default async function DashboardPage() {
   const session = await getSessionProfile();
@@ -123,7 +67,7 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* KPIカード */}
+      {/* KPIカード 1行目 */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           href="/customers"
@@ -163,6 +107,7 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* KPIカード 2行目 */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           href="/members"
@@ -179,56 +124,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* 直近の顧客登録 */}
-      <section className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
-            直近の顧客登録
-          </h2>
-          <Link
-            href="/customers"
-            className="text-xs text-primary hover:underline"
-          >
-            すべて見る →
-          </Link>
-        </div>
-
-        {recentCustomers.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-muted-foreground text-center">
-            まだ顧客がいません。
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {recentCustomers.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={`/customers/${c.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-accent/40 transition-colors"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">
-                      {c.name ?? (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {c.email}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="text-xs">
-                      {sourceLabel(c.source)}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(c.createdAt)}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <RecentCustomers customers={recentCustomers} />
 
       {/* はじめにガイド（顧客がゼロのときだけ表示） */}
       {stats.customerTotal === 0 && (
