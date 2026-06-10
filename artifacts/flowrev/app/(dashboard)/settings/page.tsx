@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getSessionProfile } from "@/features/auth/session";
 import { DisplayNameForm } from "@/features/settings/components/display-name-form";
 import { PasswordForm } from "@/features/settings/components/password-form";
@@ -75,6 +76,21 @@ export default async function SettingsPage() {
       >
         <PasswordForm />
       </Section>
+
+      {/* Stripe 決済設定（client_owner のみ表示） */}
+      {session?.role === "client_owner" && (
+        <Section
+          title="Stripe 決済設定"
+          description="LP フォームからの決済に使用する Stripe アカウントを設定します。"
+        >
+          <Link
+            href="/settings/stripe"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+          >
+            Stripe 設定を開く →
+          </Link>
+        </Section>
+      )}
 
       {/* ログアウト */}
       <Section title="ログアウト">

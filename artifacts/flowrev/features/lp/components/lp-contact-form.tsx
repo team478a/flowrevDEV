@@ -30,9 +30,14 @@ export function LpContactForm({ lpId }: LpContactFormProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lpId, email, name: name || undefined, phone: phone || undefined }),
         });
-        const data = (await res.json()) as { ok?: boolean; error?: string };
+        const data = (await res.json()) as { ok?: boolean; error?: string; checkoutUrl?: string };
         if (!res.ok || !data.ok) {
           setError(data.error ?? "送信に失敗しました。もう一度お試しください。");
+          return;
+        }
+        // 有料商品: Stripe 決済画面へリダイレクト
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
           return;
         }
         setDone(true);

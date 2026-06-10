@@ -20,6 +20,7 @@ const PUBLIC_PREFIXES = [
   "/auth",
   "/p",
   "/api/p",
+  "/api/webhooks",
 ];
 
 function isPublicPath(pathname: string): boolean {

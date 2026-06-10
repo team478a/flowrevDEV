@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { enqueuePurchaseScenarios } from "@/lib/repositories/scenario-execution";
+import { getStripeClient } from "@/lib/stripe/client";
+import { createPurchase } from "@/lib/repositories/purchases";
+import Stripe from "stripe";
 
 const bodySchema = z.object({
   lpId: z.string().uuid(),
@@ -27,10 +30,10 @@ export async function POST(req: NextRequest) {
   const { lpId, email, name, phone } = parsed.data;
   const admin = createAdminClient();
 
-  // LP を取得（clientId / whiteLabelId を取得するため）
+  // LP を取得（slug / product_id / テナント情報）
   const { data: lpData } = await admin
     .from("landing_pages")
-    .select("id, client_id, white_label_id, conversions, status")
+    .select("id, slug, client_id, white_label_id, conversions, status, product_id")
     .eq("id", lpId)
     .eq("status", "published")
     .maybeSingle();
@@ -42,9 +45,10 @@ export async function POST(req: NextRequest) {
   const lp = lpData as Record<string, unknown>;
   const clientId = lp.client_id as string;
   const whiteLabelId = lp.white_label_id as string;
+  const productId = lp.product_id as string | null;
   const currentConversions = (lp.conversions as number) ?? 0;
 
-  // 顧客を upsert（email + client_id が既存の場合は何もしない）
+  // 顧客を upsert（email + client_id が既存の場合は更新しない）
   const { error: customerError } = await admin
     .from("customers")
     .upsert(
@@ -70,18 +74,92 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 顧客 ID を取得
+  const { data: customerRow } = await admin
+    .from("customers")
+    .select("id")
+    .eq("email", email)
+    .eq("client_id", clientId)
+    .maybeSingle();
+  const customerId = (customerRow as Record<string, unknown> | null)?.id as string | undefined;
+
   // コンバージョンカウントを +1
   await admin
     .from("landing_pages")
-    .update({
-      conversions: currentConversions + 1,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ conversions: currentConversions + 1, updated_at: new Date().toISOString() })
     .eq("id", lpId);
 
-  // Supabase Auth 招待メール送信（ベストエフォート）
-  // 新規ユーザー → 招待メールを送信し user_profiles / customers.user_id を設定
-  // 既存ユーザー → スキップ（既にログイン可能なため）
+  // ---- Stripe 決済フロー（商品に価格がある場合）----
+  if (productId && customerId) {
+    const { data: productData } = await admin
+      .from("products")
+      .select("id, name, price, price_type")
+      .eq("id", productId)
+      .maybeSingle();
+
+    const product = productData as Record<string, unknown> | null;
+    const price = (product?.price as number) ?? 0;
+
+    if (price > 0) {
+      const stripeResult = await getStripeClient(clientId).catch(() => null);
+      if (stripeResult) {
+        try {
+          const host =
+            req.headers.get("x-forwarded-host") ??
+            req.headers.get("host") ??
+            "localhost:3000";
+          const proto = req.headers.get("x-forwarded-proto") ?? "http";
+          const origin = `${proto}://${host}`;
+          const lpSlug = (lp.slug as string) ?? lpId;
+
+          const session = await stripeResult.stripe.checkout.sessions.create({
+            mode: "payment",
+            payment_method_types: ["card"],
+            line_items: [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: "jpy",
+                  unit_amount: price,
+                  product_data: { name: (product?.name as string) ?? "商品" },
+                },
+              },
+            ],
+            success_url: `${origin}/my?payment=success`,
+            cancel_url: `${origin}/p/${lpSlug}`,
+            customer_email: email,
+            metadata: {
+              client_id: clientId,
+              white_label_id: whiteLabelId,
+              customer_id: customerId,
+              product_id: productId,
+              lp_id: lpId,
+              customer_name: name ?? "",
+              customer_email: email,
+            },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any);
+
+          // pending 購入レコードを作成
+          await createPurchase({
+            clientId,
+            whiteLabelId,
+            customerId,
+            productId,
+            amount: price,
+            stripeSessionId: session.id,
+          }).catch(() => null);
+
+          return NextResponse.json({ ok: true, checkoutUrl: session.url });
+        } catch (e) {
+          console.error("[LP register] Stripe Checkout 作成失敗:", e);
+          // Stripe エラーは無料フローにフォールスルー
+        }
+      }
+    }
+  }
+
+  // ---- 無料フロー（Stripe なし / 価格 0 / Stripe 未設定）----
   try {
     const host =
       req.headers.get("x-forwarded-host") ??
@@ -98,9 +176,7 @@ export async function POST(req: NextRequest) {
       });
 
     const authUserId = inviteData?.user?.id;
-
     if (authUserId) {
-      // user_profiles を作成（role=customer、テナント情報を付与）
       await admin.from("user_profiles").upsert(
         {
           id: authUserId,
@@ -111,40 +187,25 @@ export async function POST(req: NextRequest) {
         },
         { onConflict: "id", ignoreDuplicates: true },
       );
-
-      // customers レコードと Auth ユーザーをリンク
       await admin
         .from("customers")
-        .update({
-          user_id: authUserId,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ user_id: authUserId, updated_at: new Date().toISOString() })
         .eq("email", email)
         .eq("client_id", clientId);
     } else if (inviteError) {
-      // "User already registered" 等はスキップ（既存アカウントは使えるため）
-      console.warn(
-        `[LP register] invite skipped for ${email}: ${inviteError.message}`,
-      );
+      console.warn(`[LP register] invite skipped for ${email}: ${inviteError.message}`);
     }
   } catch {
     // 招待エラーは登録成功に影響させない
   }
 
-  // purchase トリガーのシナリオをエンキュー（ベストエフォート）
-  try {
-    const { data: customerRow } = await admin
-      .from("customers")
-      .select("id")
-      .eq("email", email)
-      .eq("client_id", clientId)
-      .maybeSingle();
-    if (customerRow) {
-      const customerId = (customerRow as Record<string, unknown>).id as string;
+  // シナリオエンキュー（ベストエフォート）
+  if (customerId) {
+    try {
       await enqueuePurchaseScenarios(customerId, clientId, whiteLabelId);
+    } catch {
+      // エンキュー失敗は登録成功に影響させない
     }
-  } catch {
-    // エンキュー失敗は登録成功に影響させない
   }
 
   return NextResponse.json({ ok: true });
