@@ -4,6 +4,10 @@ import { listScenarios } from "@/lib/repositories/scenarios";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TRIGGER_TYPES } from "@/features/scenarios/schema";
+import { requireClientOwner } from "@/features/wl/guard";
+import { getClientPlanFeatures } from "@/lib/features/client-features";
+import { hasFeature } from "@/lib/features/plan-features";
+import { FeatureDisabledMessage } from "@/features/dashboard/components/feature-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +15,13 @@ const triggerLabel = (type: string) =>
   TRIGGER_TYPES.find((t) => t.value === type)?.label ?? type;
 
 export default async function ScenariosPage() {
+  const session = await requireClientOwner();
+  if (session.clientId) {
+    const features = await getClientPlanFeatures(session.clientId);
+    if (!hasFeature(features, "scenarios")) {
+      return <FeatureDisabledMessage featureName="フォローシナリオ" />;
+    }
+  }
   let scenarios: Awaited<ReturnType<typeof listScenarios>> = [];
 
   try {

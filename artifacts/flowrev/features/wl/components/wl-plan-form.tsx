@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import { createWLPlanAction, type CreateWLPlanState } from "../actions";
+import { PLAN_FEATURE_DEFS } from "@/lib/features/plan-features";
 
 const initialState: CreateWLPlanState = { error: null };
 
@@ -87,6 +88,32 @@ export function WLPlanForm() {
             required
             className={inputClass}
           />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border border-input p-4">
+        <p className={labelClass}>機能フラグ</p>
+        <p className="text-xs text-muted-foreground">
+          ONにした機能がクライアントの管理画面に表示されます。
+        </p>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {PLAN_FEATURE_DEFS.map((f) => (
+            <label
+              key={f.key}
+              className="flex cursor-pointer items-start gap-2.5 rounded-md p-2 hover:bg-accent"
+            >
+              <input
+                type="checkbox"
+                name={`feature_${f.key}`}
+                defaultChecked={false}
+                className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">{f.label}</span>
+                <span className="text-xs text-muted-foreground">{f.description}</span>
+              </div>
+            </label>
+          ))}
         </div>
       </div>
 

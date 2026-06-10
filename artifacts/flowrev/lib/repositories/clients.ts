@@ -13,6 +13,7 @@ export interface CreateClientInput {
   whiteLabelId: string;
   ownerUserId: string;
   businessName: string;
+  planId?: string | null;
 }
 
 /**
@@ -132,6 +133,7 @@ export async function createClientForOwner(
       owner_user_id: input.ownerUserId,
       business_name: input.businessName,
       status: "active",
+      ...(input.planId ? { plan_id: input.planId } : {}),
     })
     .select("id")
     .single();

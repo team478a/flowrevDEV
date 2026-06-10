@@ -8,3 +8,4 @@
 - [Pending migrations](pending-migrations.md) — migrations written to repo but not yet run in Supabase SQL Editor; remind user before testing affected features.
 - [Client invitation flow](invitation-flow.md) — WL-owner onboarding is invite-based, split into create (URL shown) vs `/register?token=` accept; uses RLS session client, not admin.
 - [Supabase URL normalization](supabase-url-normalization.md) — NEXT_PUBLIC_SUPABASE_URL must be bare origin; a `/rest/v1/` path breaks every call ("Invalid path"); normalized in code.
+- [Plan feature flags split](plan-feature-flags.md) — feature constants/types in `lib/features/plan-features.ts` (client-safe); server-only `getClientPlanFeatures` in `lib/features/client-features.ts`; never merge them or client components importing constants will pull in server-only and break the build.

@@ -3,10 +3,21 @@ import { Plus, BookOpen } from "lucide-react";
 import { listCourses } from "@/lib/repositories/courses";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { requireClientOwner } from "@/features/wl/guard";
+import { getClientPlanFeatures } from "@/lib/features/client-features";
+import { hasFeature } from "@/lib/features/plan-features";
+import { FeatureDisabledMessage } from "@/features/dashboard/components/feature-gate";
 
 export const dynamic = "force-dynamic";
 
 export default async function MembersPage() {
+  const session = await requireClientOwner();
+  if (session.clientId) {
+    const features = await getClientPlanFeatures(session.clientId);
+    if (!hasFeature(features, "member_site")) {
+      return <FeatureDisabledMessage featureName="会員サイト" />;
+    }
+  }
   let courses: Awaited<ReturnType<typeof listCourses>> = [];
 
   try {

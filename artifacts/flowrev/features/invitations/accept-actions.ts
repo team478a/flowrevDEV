@@ -121,6 +121,7 @@ export async function acceptInvitationAction(
       whiteLabelId: invitation.whiteLabelId,
       ownerUserId: userId,
       businessName: invitation.clientName,
+      planId: invitation.planId ?? null,
     });
   } catch (e) {
     // 補償: clients 作成に失敗したらユーザー削除＋招待を pending へ戻す。

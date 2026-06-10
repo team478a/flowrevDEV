@@ -13,6 +13,7 @@ export interface PlanRow {
   maxProducts: number;
   maxCustomers: number;
   priceMonthly: number;
+  features: Record<string, boolean>;
   createdAt: string | null;
 }
 
@@ -22,6 +23,7 @@ export interface CreatePlanInput {
   maxProducts: number;
   maxCustomers: number;
   priceMonthly: number;
+  features?: Record<string, boolean>;
 }
 
 /**
@@ -54,7 +56,7 @@ export async function listPlansFull(): Promise<PlanRow[]> {
   const { data, error } = await admin
     .from("plans")
     .select(
-      "id, name, max_clients, max_products, max_customers, price_monthly, created_at",
+      "id, name, max_clients, max_products, max_customers, price_monthly, features, created_at",
     )
     .order("price_monthly", { ascending: true });
 
@@ -69,6 +71,7 @@ export async function listPlansFull(): Promise<PlanRow[]> {
     maxProducts: (p.max_products as number) ?? 0,
     maxCustomers: (p.max_customers as number) ?? 0,
     priceMonthly: (p.price_monthly as number) ?? 0,
+    features: ((p.features as Record<string, boolean>) ?? {}),
     createdAt: (p.created_at as string) ?? null,
   }));
 }
@@ -102,7 +105,7 @@ export async function listWLPlansFull(whiteLabelId: string): Promise<PlanRow[]> 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("plans")
-    .select("id, name, max_clients, max_products, max_customers, price_monthly, created_at")
+    .select("id, name, max_clients, max_products, max_customers, price_monthly, features, created_at")
     .eq("white_label_id", whiteLabelId)
     .order("price_monthly", { ascending: true });
 
@@ -117,6 +120,7 @@ export async function listWLPlansFull(whiteLabelId: string): Promise<PlanRow[]> 
     maxProducts: (p.max_products as number) ?? 0,
     maxCustomers: (p.max_customers as number) ?? 0,
     priceMonthly: (p.price_monthly as number) ?? 0,
+    features: ((p.features as Record<string, boolean>) ?? {}),
     createdAt: (p.created_at as string) ?? null,
   }));
 }
@@ -137,6 +141,7 @@ export async function createWLPlan(
       max_products: input.maxProducts,
       max_customers: input.maxCustomers,
       price_monthly: input.priceMonthly,
+      features: input.features ?? {},
       white_label_id: whiteLabelId,
     })
     .select("id")
@@ -159,7 +164,7 @@ export async function getWLPlan(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("plans")
-    .select("id, name, max_clients, max_products, max_customers, price_monthly, created_at")
+    .select("id, name, max_clients, max_products, max_customers, price_monthly, features, created_at")
     .eq("id", id)
     .eq("white_label_id", whiteLabelId)
     .maybeSingle();
@@ -174,6 +179,7 @@ export async function getWLPlan(
     maxProducts: (data.max_products as number) ?? 0,
     maxCustomers: (data.max_customers as number) ?? 0,
     priceMonthly: (data.price_monthly as number) ?? 0,
+    features: ((data.features as Record<string, boolean>) ?? {}),
     createdAt: (data.created_at as string) ?? null,
   };
 }
@@ -195,6 +201,7 @@ export async function updateWLPlan(
       max_products: input.maxProducts,
       max_customers: input.maxCustomers,
       price_monthly: input.priceMonthly,
+      features: input.features ?? {},
     })
     .eq("id", id)
     .eq("white_label_id", whiteLabelId);

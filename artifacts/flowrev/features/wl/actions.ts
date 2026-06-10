@@ -4,9 +4,9 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/features/auth/session";
-import { createWLPlan } from "@/lib/repositories/plans";
+import { createWLPlan, updateWLPlan, deleteWLPlan } from "@/lib/repositories/plans";
 import { updateClient, toggleClientStatus } from "@/lib/repositories/clients";
-import { updateWLPlan, deleteWLPlan } from "@/lib/repositories/plans";
+import { PLAN_FEATURE_DEFS } from "@/lib/features/plan-features";
 
 const intField = (label: string) =>
   z
@@ -27,6 +27,14 @@ const planSchema = z.object({
   maxProducts: intField("最大商品数"),
   maxCustomers: intField("最大顧客数"),
 });
+
+function extractFeatures(formData: FormData): Record<string, boolean> {
+  const features: Record<string, boolean> = {};
+  for (const def of PLAN_FEATURE_DEFS) {
+    features[def.key] = formData.get(`feature_${def.key}`) === "on";
+  }
+  return features;
+}
 
 export interface CreateWLPlanState {
   error: string | null;
@@ -59,8 +67,10 @@ export async function createWLPlanAction(
     };
   }
 
+  const features = extractFeatures(formData);
+
   try {
-    await createWLPlan(session.whiteLabelId, parsed.data);
+    await createWLPlan(session.whiteLabelId, { ...parsed.data, features });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "作成に失敗しました。" };
   }
@@ -156,8 +166,10 @@ export async function updateWLPlanAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
+  const features = extractFeatures(formData);
+
   try {
-    await updateWLPlan(id, session.whiteLabelId, parsed.data);
+    await updateWLPlan(id, session.whiteLabelId, { ...parsed.data, features });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "更新に失敗しました。" };
   }
@@ -179,7 +191,7 @@ export async function deleteWLPlanAction(
   }
 
   const id = String(formData.get("id") ?? "").trim();
-  if (!id) return { error: "IDが不正です。" };
+  if (!id) return { error: "パラメータが不正です。" };
 
   try {
     await deleteWLPlan(id, session.whiteLabelId);

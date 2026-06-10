@@ -3,6 +3,10 @@ import { Plus, FileText } from "lucide-react";
 import { listLandingPages } from "@/lib/repositories/landing-pages";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { requireClientOwner } from "@/features/wl/guard";
+import { getClientPlanFeatures } from "@/lib/features/client-features";
+import { hasFeature } from "@/lib/features/plan-features";
+import { FeatureDisabledMessage } from "@/features/dashboard/components/feature-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +26,14 @@ const STATUS_VARIANT: Record<
 };
 
 export default async function LpListPage() {
+  const session = await requireClientOwner();
+  if (session.clientId) {
+    const features = await getClientPlanFeatures(session.clientId);
+    if (!hasFeature(features, "lp_builder")) {
+      return <FeatureDisabledMessage featureName="LP管理" />;
+    }
+  }
+
   let pages: Awaited<ReturnType<typeof listLandingPages>> = [];
   let fetchError: string | null = null;
 
