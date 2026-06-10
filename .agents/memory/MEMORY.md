@@ -9,3 +9,4 @@
 - [Client invitation flow](invitation-flow.md) — WL-owner onboarding is invite-based, split into create (URL shown) vs `/register?token=` accept; uses RLS session client, not admin.
 - [Supabase URL normalization](supabase-url-normalization.md) — NEXT_PUBLIC_SUPABASE_URL must be bare origin; a `/rest/v1/` path breaks every call ("Invalid path"); normalized in code.
 - [Plan feature flags split](plan-feature-flags.md) — feature constants/types in `lib/features/plan-features.ts` (client-safe); server-only `getClientPlanFeatures` in `lib/features/client-features.ts`; never merge them or client components importing constants will pull in server-only and break the build.
+- [Server action barrel files](server-action-barrels.md) — barrel files re-exporting "use server" modules must NOT include "use server" themselves and must use explicit named exports (not `export *`); `export *` from a "use server" module causes webpack build errors in Next.js 14.

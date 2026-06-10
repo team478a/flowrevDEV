@@ -94,9 +94,32 @@
 - Vercel 本番デプロイ（flowrev-dev-flowrev.vercel.app）
 - Supabase（flowrev-dev）— Auth・DB・RLS・Storage
 
+### MVP 後追加実装（Phase 6〜）
+
+#### 顧客向け認証・マイページ強化
+- パスワードリセットフロー（/reset-password → メール送信 → /update-password）
+- /my/settings（表示名・パスワード変更）
+- LP登録時に Supabase Auth 招待メールを自動送信（admin.auth.admin.inviteUserByEmail）
+  - 新規顧客 → 招待メール送信 → user_profiles 作成 → customers.user_id リンク
+  - 既存アカウントはスキップ（すでにログイン可能）
+  - redirectTo = `/auth/callback?next=/my`
+  - ⚠️ Supabase Dashboard の Additional redirect URLs への追加が必要
+
+#### コード品質リファクタリング
+- `features/admin/actions.ts` を3ファイルに分割（white-label / plan / email）
+- `features/members/actions.ts` を2ファイルに分割（course / lesson）+ `types.ts`
+- `app/(dashboard)/dashboard/page.tsx` から KpiCard・RecentCustomers を feature コンポーネントに抽出
+- すべてバレルファイルで後方互換を維持
+
+#### LPビルダー強化（2系統作成フロー）
+- **かんたん作成**（`/lp/new?mode=easy`）— 目的・ターゲットを入力 → AI生成 → プレビュー確認 → 保存。HTMLの知識不要。
+- **自由編集**（`/lp/new?mode=advanced`）— HTMLエディター左 ＋ リアルタイムプレビュー右（2カラム）。モバイルはタブ切替。
+- 新規作成時にモード選択画面（`LpCreateModeSelector`）を表示
+- 既存の LP 編集画面（`/lp/[id]`）にも自動的にリアルタイムプレビューが適用
+
 ## Product
 
-詳細は仕様書参照。MVP（Phase 1〜5）完了。次は本番 Supabase（flowrev-prod）切り替えまたは将来フェーズ。
+詳細は仕様書参照。MVP（Phase 1〜5）＋ Phase 6 追加実装済み。次は本番 Supabase（flowrev-prod）切り替えまたは将来フェーズ。
 
 ## User preferences
 
