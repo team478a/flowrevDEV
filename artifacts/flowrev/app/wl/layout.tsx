@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 const NAV_ITEMS: NavItem[] = [
   { label: "ダッシュボード", href: "/wl/dashboard", icon: "⊞" },
   { label: "クライアント管理", href: "/wl/clients", icon: "🏢" },
+  { label: "プラン管理", href: "/wl/plans", icon: "📋" },
 ];
 
 export default async function WlLayout({

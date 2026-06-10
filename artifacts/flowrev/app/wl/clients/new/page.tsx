@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { InvitationForm } from "@/features/invitations/components/invitation-form";
-import { listPlans } from "@/lib/repositories/plans";
+import { listWLPlans } from "@/lib/repositories/plans";
+import { requireWhiteLabelOwner } from "@/features/wl/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,8 @@ export const metadata = {
 };
 
 export default async function NewClientInvitationPage() {
-  const plans = await listPlans();
+  const session = await requireWhiteLabelOwner();
+  const plans = await listWLPlans(session.whiteLabelId!);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
