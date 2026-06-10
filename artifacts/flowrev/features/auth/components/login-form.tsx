@@ -66,6 +66,15 @@ export function LoginForm() {
       )}
 
       <SubmitButton />
+
+      <div className="text-center">
+        <a
+          href="/reset-password"
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+        >
+          パスワードをお忘れですか？
+        </a>
+      </div>
     </form>
   );
 }

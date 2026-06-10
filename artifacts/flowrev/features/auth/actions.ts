@@ -1,11 +1,18 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { roleHomePath } from "./role";
+import { getSessionProfile } from "./session";
 
 export interface LoginState {
   error: string | null;
+}
+
+export interface ResetState {
+  error: string | null;
+  success: string | null;
 }
 
 /**
@@ -57,4 +64,72 @@ export async function logout(): Promise<void> {
   const supabase = createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/**
+ * パスワードリセットメールを送信するサーバーアクション。
+ */
+export async function requestPasswordReset(
+  _prevState: ResetState,
+  formData: FormData,
+): Promise<ResetState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) {
+    return { error: "メールアドレスを入力してください。", success: null };
+  }
+
+  const headersList = headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const proto =
+    process.env.NODE_ENV === "production"
+      ? "https"
+      : (headersList.get("x-forwarded-proto") ?? "http");
+  const origin = `${proto}://${host}`;
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
+  });
+
+  if (error && error.status !== 429) {
+    return { error: "メールの送信に失敗しました。", success: null };
+  }
+
+  return {
+    error: null,
+    success: "パスワードリセットのメールを送信しました。",
+  };
+}
+
+/**
+ * 新しいパスワードを設定するサーバーアクション（リセットメール経由）。
+ */
+export async function updatePassword(
+  _prevState: ResetState,
+  formData: FormData,
+): Promise<ResetState> {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirmPassword") ?? "");
+
+  if (password.length < 8) {
+    return {
+      error: "パスワードは8文字以上で入力してください。",
+      success: null,
+    };
+  }
+  if (password !== confirm) {
+    return { error: "パスワードが一致しません。", success: null };
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return {
+      error: `パスワード変更に失敗しました: ${error.message}`,
+      success: null,
+    };
+  }
+
+  const session = await getSessionProfile();
+  redirect(session ? roleHomePath(session.role) : "/login");
 }

@@ -5,12 +5,22 @@ import { normalizeSupabaseUrl } from "./url";
 
 /**
  * 認証不要で誰でもアクセスできるパスのプレフィックス。
- * - /login, /register : 認証画面
- * - /auth            : Supabase コールバック
- * - /p/              : 公開 LP（顧客向け）
- * - /api/p/          : 公開 LP のフォーム送信 API（匿名アクセス）
+ * - /login, /register        : 認証画面
+ * - /reset-password          : パスワードリセット申請
+ * - /update-password         : 新パスワード設定（リセットメール経由）
+ * - /auth                    : Supabase コールバック
+ * - /p/                      : 公開 LP（顧客向け）
+ * - /api/p/                  : 公開 LP のフォーム送信 API（匿名アクセス）
  */
-const PUBLIC_PREFIXES = ["/login", "/register", "/auth", "/p", "/api/p"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/register",
+  "/reset-password",
+  "/update-password",
+  "/auth",
+  "/p",
+  "/api/p",
+];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(
