@@ -59,6 +59,18 @@ export default async function AdminDashboardPage() {
           >
             メール設定
           </Link>
+          <Link
+            href="/admin/settings/ai"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            AI設定 (Anthropic)
+          </Link>
+          <Link
+            href="/admin/settings/openai"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            AI設定 (OpenAI)
+          </Link>
         </div>
       </div>
     </div>

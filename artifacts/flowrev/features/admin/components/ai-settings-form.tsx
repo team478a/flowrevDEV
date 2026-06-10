@@ -12,6 +12,9 @@ interface AiSettingsFormProps {
     prev: { error: string | null; success?: boolean },
     formData: FormData,
   ) => Promise<{ error: string | null; success?: boolean }>;
+  keyLabel?: string;
+  keyPlaceholder?: string;
+  modelPlaceholder?: string;
 }
 
 const initialState = { error: null, success: false };
@@ -25,7 +28,13 @@ function SubmitButton() {
   );
 }
 
-export function AiSettingsForm({ current, action }: AiSettingsFormProps) {
+export function AiSettingsForm({
+  current,
+  action,
+  keyLabel = "API キー",
+  keyPlaceholder = "sk-...",
+  modelPlaceholder = "モデル名を入力",
+}: AiSettingsFormProps) {
   const [state, formAction] = useFormState(action, initialState);
 
   return (
@@ -43,7 +52,7 @@ export function AiSettingsForm({ current, action }: AiSettingsFormProps) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="apiKey">
-          Anthropic API キー *
+          {keyLabel}
           {current?.hasApiKey && (
             <span className="ml-2 text-xs text-muted-foreground font-normal">
               （設定済み・入力すると上書き）
@@ -54,7 +63,7 @@ export function AiSettingsForm({ current, action }: AiSettingsFormProps) {
           id="apiKey"
           name="apiKey"
           type="password"
-          placeholder="sk-ant-..."
+          placeholder={keyPlaceholder}
           autoComplete="off"
           required={!current?.hasApiKey}
         />
@@ -64,13 +73,13 @@ export function AiSettingsForm({ current, action }: AiSettingsFormProps) {
         <Label htmlFor="model">
           モデル
           <span className="ml-2 text-xs text-muted-foreground font-normal">
-            （空欄 = claude-3-5-haiku-20241022）
+            （空欄 = {modelPlaceholder}）
           </span>
         </Label>
         <Input
           id="model"
           name="model"
-          placeholder="claude-3-5-haiku-20241022"
+          placeholder={modelPlaceholder}
           defaultValue={current?.model ?? ""}
         />
       </div>

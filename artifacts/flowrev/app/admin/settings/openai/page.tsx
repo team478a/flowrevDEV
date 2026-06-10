@@ -1,0 +1,80 @@
+import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { AiSettingsForm } from "@/features/admin/components/ai-settings-form";
+import {
+  getHqAiSettingMasked,
+  upsertHqAiSetting,
+} from "@/lib/repositories/ai-settings";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSessionProfile } from "@/features/auth/session";
+
+export const dynamic = "force-dynamic";
+
+async function saveOpenAiSettingAction(
+  _prev: { error: string | null; success?: boolean },
+  formData: FormData,
+): Promise<{ error: string | null; success?: boolean }> {
+  "use server";
+  const session = await getSessionProfile();
+  if (session?.role !== "system_admin")
+    return { error: "この操作を行う権限がありません。" };
+
+  const apiKey = (formData.get("apiKey") as string | null)?.trim() ?? "";
+  const model = (formData.get("model") as string | null)?.trim() ?? "";
+
+  const current = await getHqAiSettingMasked("openai");
+
+  if (!apiKey && !current?.hasApiKey)
+    return { error: "API キーを入力してください。" };
+
+  try {
+    if (apiKey) {
+      await upsertHqAiSetting({ provider: "openai", apiKey, model: model || undefined });
+    } else {
+      const supabase = createAdminClient();
+      await supabase
+        .from("ai_provider_settings")
+        .update({ model: model || null, updated_at: new Date().toISOString() })
+        .eq("provider", "openai")
+        .is("white_label_id", null);
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "保存に失敗しました。" };
+  }
+
+  revalidatePath("/admin/settings/openai");
+  return { error: null, success: true };
+}
+
+export default async function OpenAiSettingsPage() {
+  const current = await getHqAiSettingMasked("openai");
+
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <Link
+          href="/admin/dashboard"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← 管理ダッシュボード
+        </Link>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          AI設定（OpenAI）
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          OpenAI API キーを設定します。暗号化して保存されます。
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <AiSettingsForm
+          current={current}
+          action={saveOpenAiSettingAction}
+          keyLabel="OpenAI API キー"
+          keyPlaceholder="sk-..."
+          modelPlaceholder="gpt-4o-mini"
+        />
+      </div>
+    </div>
+  );
+}
