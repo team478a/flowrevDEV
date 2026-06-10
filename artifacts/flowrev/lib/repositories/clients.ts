@@ -1,9 +1,102 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export interface ClientRow {
+  id: string;
+  businessName: string;
+  status: string;
+  whiteLabelId: string;
+  ownerUserId: string | null;
+  createdAt: string | null;
+}
+
 export interface CreateClientInput {
   whiteLabelId: string;
   ownerUserId: string;
   businessName: string;
+}
+
+/**
+ * WL オーナー配下のクライアント一覧を取得する（管理者クライアント）。
+ */
+export async function listClientsForWL(whiteLabelId: string): Promise<ClientRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("clients")
+    .select("id, business_name, status, white_label_id, owner_user_id, created_at")
+    .eq("white_label_id", whiteLabelId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`クライアント一覧の取得に失敗しました: ${error.message}`);
+
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    businessName: r.business_name as string,
+    status: r.status as string,
+    whiteLabelId: r.white_label_id as string,
+    ownerUserId: (r.owner_user_id as string) ?? null,
+    createdAt: (r.created_at as string) ?? null,
+  }));
+}
+
+/**
+ * クライアント1件を取得する（管理者クライアント）。
+ */
+export async function getClient(id: string, whiteLabelId: string): Promise<ClientRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("clients")
+    .select("id, business_name, status, white_label_id, owner_user_id, created_at")
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId)
+    .maybeSingle();
+
+  if (error) throw new Error(`取得に失敗しました: ${error.message}`);
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    businessName: data.business_name as string,
+    status: data.status as string,
+    whiteLabelId: data.white_label_id as string,
+    ownerUserId: (data.owner_user_id as string) ?? null,
+    createdAt: (data.created_at as string) ?? null,
+  };
+}
+
+/**
+ * クライアントの事業者名を更新する（管理者クライアント）。
+ */
+export async function updateClient(
+  id: string,
+  whiteLabelId: string,
+  input: { businessName: string },
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("clients")
+    .update({ business_name: input.businessName })
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId);
+
+  if (error) throw new Error(`更新に失敗しました: ${error.message}`);
+}
+
+/**
+ * クライアントのステータスを切り替える（active ↔ suspended）。
+ */
+export async function toggleClientStatus(
+  id: string,
+  whiteLabelId: string,
+  status: "active" | "suspended",
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("clients")
+    .update({ status })
+    .eq("id", id)
+    .eq("white_label_id", whiteLabelId);
+
+  if (error) throw new Error(`ステータス変更に失敗しました: ${error.message}`);
 }
 
 /**

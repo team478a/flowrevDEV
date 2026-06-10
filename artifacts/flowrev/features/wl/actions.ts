@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/features/auth/session";
 import { createWLPlan } from "@/lib/repositories/plans";
+import { updateClient, toggleClientStatus } from "@/lib/repositories/clients";
 
 const intField = (label: string) =>
   z
@@ -65,4 +66,62 @@ export async function createWLPlanAction(
 
   revalidatePath("/wl/plans");
   redirect("/wl/plans");
+}
+
+export interface ClientActionState {
+  error: string | null;
+}
+
+/**
+ * クライアントの事業者名を更新するサーバーアクション。
+ */
+export async function updateClientAction(
+  id: string,
+  _prevState: ClientActionState,
+  formData: FormData,
+): Promise<ClientActionState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "white_label_owner" || !session.whiteLabelId) {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const businessName = String(formData.get("businessName") ?? "").trim();
+  if (!businessName) return { error: "事業者名を入力してください。" };
+
+  try {
+    await updateClient(id, session.whiteLabelId, { businessName });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "更新に失敗しました。" };
+  }
+
+  revalidatePath("/wl/clients");
+  redirect("/wl/clients");
+}
+
+/**
+ * クライアントの停止・復活を切り替えるサーバーアクション。
+ */
+export async function toggleClientStatusAction(
+  _prevState: ClientActionState,
+  formData: FormData,
+): Promise<ClientActionState> {
+  const session = await getSessionProfile();
+  if (session?.role !== "white_label_owner" || !session.whiteLabelId) {
+    return { error: "この操作を行う権限がありません。" };
+  }
+
+  const id = String(formData.get("id") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim() as "active" | "suspended";
+  if (!id || !["active", "suspended"].includes(status)) {
+    return { error: "パラメータが不正です。" };
+  }
+
+  try {
+    await toggleClientStatus(id, session.whiteLabelId, status);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "変更に失敗しました。" };
+  }
+
+  revalidatePath("/wl/clients");
+  return { error: null };
 }

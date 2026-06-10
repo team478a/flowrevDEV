@@ -71,6 +71,7 @@ export async function createInvitation(
 
 /**
  * テナント配下の招待一覧を取得する（新しい順）。RLS で自テナントのみ。
+ * acceptedOnly=false（デフォルト）は全件。pending のみが必要な場合は pendingOnly を使う。
  */
 export async function listInvitations(): Promise<InvitationRow[]> {
   const supabase = createClient();
@@ -79,6 +80,7 @@ export async function listInvitations(): Promise<InvitationRow[]> {
     .select(
       "id, email, client_name, representative_name, status, expires_at, created_at",
     )
+    .neq("status", "accepted")
     .order("created_at", { ascending: false });
 
   if (error) {
