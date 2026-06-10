@@ -15,7 +15,6 @@ import {
   DollarSign,
   UserPlus,
   Activity,
-  CreditCard,
   Plus,
   MoreHorizontal
 } from 'lucide-react';
@@ -52,8 +51,8 @@ export function CleanPro() {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-slate-100">
-          <div className="flex items-center gap-2 text-indigo-600 font-bold text-xl tracking-tight">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xl tracking-tight">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
               <div className="w-4 h-4 bg-white rounded-sm"></div>
             </div>
             FlowRev
@@ -64,13 +63,13 @@ export function CleanPro() {
           {sidebarItems.map((item, idx) => (
             <button
               key={idx}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative ${
                 item.active 
-                  ? 'bg-indigo-50 text-indigo-700 relative after:absolute after:left-0 after:top-0 after:bottom-0 after:w-1 after:bg-indigo-600 after:rounded-r-full' 
+                  ? 'bg-emerald-50 text-emerald-700 after:absolute after:left-0 after:top-0 after:bottom-0 after:w-1 after:bg-emerald-600 after:rounded-r-full' 
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <item.icon size={18} className={item.active ? 'text-indigo-600' : 'text-slate-400'} />
+              <item.icon size={18} className={item.active ? 'text-emerald-600' : 'text-slate-400'} />
               {item.label}
             </button>
           ))}
@@ -78,7 +77,7 @@ export function CleanPro() {
 
         <div className="p-4 border-t border-slate-100">
           <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium text-sm">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-medium text-sm">
               ED
             </div>
             <div className="flex-1 text-left">
@@ -105,14 +104,14 @@ export function CleanPro() {
               <input 
                 type="text" 
                 placeholder="検索..." 
-                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64"
+                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-64"
               />
             </div>
             <button className="relative p-2 text-slate-400 hover:bg-slate-50 rounded-full transition-colors">
               <Bell size={20} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
             </button>
-            <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+            <button className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
               <Plus size={16} />
               新規作成
             </button>
@@ -129,8 +128,8 @@ export function CleanPro() {
                 <div key={idx} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-500">{kpi.label}</span>
-                    <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-                      <kpi.icon size={20} className="text-indigo-600" />
+                    <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                      <kpi.icon size={20} className="text-emerald-600" />
                     </div>
                   </div>
                   <div>
@@ -151,7 +150,7 @@ export function CleanPro() {
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-slate-900">最近の顧客</h2>
-                <button className="text-sm font-medium text-indigo-600 hover:text-indigo-700">すべて見る</button>
+                <button className="text-sm font-medium text-emerald-600 hover:text-emerald-700">すべて見る</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
