@@ -270,3 +270,84 @@ export async function deleteStep(id: string): Promise<void> {
   if (error)
     throw new Error(`ステップの削除に失敗しました: ${error.message}`);
 }
+
+export interface CustomerScenarioLog {
+  logId: string;
+  scenarioId: string;
+  scenarioName: string;
+  stepId: string;
+  stepNumber: number;
+  subject: string | null;
+  status: string; // "pending" | "sent" | "failed"
+  scheduledAt: string;
+  sentAt: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+/**
+ * 顧客のシナリオ配信ログ一覧を取得する（新しい順）。
+ * RLS で自テナントのみ。
+ */
+export async function getCustomerScenarioLogs(
+  customerId: string,
+  limit = 30,
+): Promise<CustomerScenarioLog[]> {
+  const supabase = createClient();
+
+  const { data: logs, error } = await supabase
+    .from("scenario_logs")
+    .select("id, scenario_id, step_id, status, sent_at, error_message, created_at")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !logs?.length) return [];
+
+  const typedLogs = logs as Record<string, unknown>[];
+  const scenarioIds = [...new Set(typedLogs.map((l) => l.scenario_id as string))];
+  const stepIds = [...new Set(typedLogs.map((l) => l.step_id as string))];
+
+  const [{ data: scenarios }, { data: steps }] = await Promise.all([
+    supabase
+      .from("follow_scenarios")
+      .select("id, name")
+      .in("id", scenarioIds),
+    supabase
+      .from("scenario_steps")
+      .select("id, step_number, subject, delay_days")
+      .in("id", stepIds),
+  ]);
+
+  const scenarioMap = new Map<string, string>();
+  for (const s of (scenarios ?? []) as Record<string, unknown>[]) {
+    scenarioMap.set(s.id as string, s.name as string);
+  }
+
+  const stepMap = new Map<string, Record<string, unknown>>();
+  for (const s of (steps ?? []) as Record<string, unknown>[]) {
+    stepMap.set(s.id as string, s);
+  }
+
+  return typedLogs.map((log) => {
+    const step = stepMap.get(log.step_id as string);
+    const delayDays = (step?.delay_days as number) ?? 0;
+    const scheduledAt = new Date(
+      new Date(log.created_at as string).getTime() + delayDays * 86400 * 1000,
+    ).toISOString();
+
+    return {
+      logId: log.id as string,
+      scenarioId: log.scenario_id as string,
+      scenarioName: scenarioMap.get(log.scenario_id as string) ?? "不明",
+      stepId: log.step_id as string,
+      stepNumber: (step?.step_number as number) ?? 0,
+      subject: (step?.subject as string) ?? null,
+      status: log.status as string,
+      scheduledAt,
+      sentAt: (log.sent_at as string) ?? null,
+      errorMessage: (log.error_message as string) ?? null,
+      createdAt: log.created_at as string,
+    };
+  });
+}
