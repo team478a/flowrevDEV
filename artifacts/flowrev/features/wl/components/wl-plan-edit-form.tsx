@@ -63,21 +63,7 @@ export function WLPlanEditForm({ plan }: { plan: PlanRow }) {
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="maxClients" className={labelClass}>
-              最大クライアント数
-            </label>
-            <input
-              id="maxClients"
-              name="maxClients"
-              type="number"
-              min={0}
-              required
-              defaultValue={plan.maxClients}
-              className={inputClass}
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="maxProducts" className={labelClass}>
               最大商品数

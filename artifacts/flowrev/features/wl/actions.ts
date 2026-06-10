@@ -23,7 +23,6 @@ const intField = (label: string) =>
 const planSchema = z.object({
   name: z.string().trim().min(1, "プラン名を入力してください。"),
   priceMonthly: intField("月額"),
-  maxClients: intField("最大クライアント数"),
   maxProducts: intField("最大商品数"),
   maxCustomers: intField("最大顧客数"),
 });
@@ -56,7 +55,6 @@ export async function createWLPlanAction(
   const parsed = planSchema.safeParse({
     name: formData.get("name"),
     priceMonthly: formData.get("priceMonthly"),
-    maxClients: formData.get("maxClients"),
     maxProducts: formData.get("maxProducts"),
     maxCustomers: formData.get("maxCustomers"),
   });
@@ -70,7 +68,7 @@ export async function createWLPlanAction(
   const features = extractFeatures(formData);
 
   try {
-    await createWLPlan(session.whiteLabelId, { ...parsed.data, features });
+    await createWLPlan(session.whiteLabelId, { ...parsed.data, maxClients: 0, features });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "作成に失敗しました。" };
   }
@@ -157,7 +155,6 @@ export async function updateWLPlanAction(
   const parsed = planSchema.safeParse({
     name: formData.get("name"),
     priceMonthly: formData.get("priceMonthly"),
-    maxClients: formData.get("maxClients"),
     maxProducts: formData.get("maxProducts"),
     maxCustomers: formData.get("maxCustomers"),
   });
@@ -169,7 +166,7 @@ export async function updateWLPlanAction(
   const features = extractFeatures(formData);
 
   try {
-    await updateWLPlan(id, session.whiteLabelId, { ...parsed.data, features });
+    await updateWLPlan(id, session.whiteLabelId, { ...parsed.data, maxClients: 0, features });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "更新に失敗しました。" };
   }

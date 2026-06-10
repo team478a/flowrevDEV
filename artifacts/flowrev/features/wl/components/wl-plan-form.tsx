@@ -40,7 +40,7 @@ export function WLPlanForm() {
           <input id="name" name="name" required placeholder="例：スタンダードプラン" className={inputClass} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="priceMonthly" className={labelClass}>
               月額（円） <span className="text-destructive">*</span>
@@ -52,20 +52,6 @@ export function WLPlanForm() {
               min={0}
               required
               placeholder="例：9800"
-              className={inputClass}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="maxClients" className={labelClass}>
-              最大クライアント数 <span className="text-destructive">*</span>
-            </label>
-            <input
-              id="maxClients"
-              name="maxClients"
-              type="number"
-              min={0}
-              required
-              placeholder="例：10"
               className={inputClass}
             />
           </div>

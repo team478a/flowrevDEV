@@ -72,7 +72,6 @@ export default async function WLPlansPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>クライアント上限: {p.maxClients.toLocaleString()}</span>
                     <span>商品上限: {p.maxProducts.toLocaleString()}</span>
                     <span>顧客上限: {p.maxCustomers.toLocaleString()}</span>
                   </div>
