@@ -1,28 +1,30 @@
 ---
 name: Pending Supabase migrations
-description: Migrations written to repo but NOT yet executed in Supabase SQL Editor — must remind user before testing affected features.
+description: Tracks which supabase/migrations/*.sql have NOT yet been executed in the live Supabase project. Currently all applied.
 ---
 
 # Pending Supabase Migrations
 
 ## Rule
 Every time a new `supabase/migrations/00XX_*.sql` is created, add it here.
-When the user confirms it has been executed, remove the entry.
-DB の実適用状況は service_role キーで直接確認できる（テーブル=REST 200、関数=RPC 404判定、ポリシー=pg_policies）。
+When the user confirms it has been executed (and it is verified against the live DB), remove the entry.
 
-## 適用状況（2026-06-10 実DB確認）
+## 適用状況（2026-06-10 実DB確認・全件適用済み）
 
 - ✅ 全23テーブル作成済み
-- ✅ RLS ヘルパー関数（get_user_role / get_user_client_id / get_user_white_label_id）作成済み
-- ✅ RLS ポリシー（0007_rls_policies.sql）= 15テーブルに適用済み
+- ✅ RLS ヘルパー関数（get_user_role / get_user_client_id / get_user_white_label_id）
+- ✅ RLS ポリシー（0007_rls_policies.sql）= 15テーブル
+- ✅ Storage バケット `product-images`（0004_storage.sql）
+- ✅ ai_provider_settings RLS（0008_ai_rls.sql）
+- ✅ ユーザー作成トリガー（0008_user_trigger.sql）— 機能テストで自動生成を確認
 
-## Pending（残り3つ）
+## Pending
 
-| ファイル | 内容 | 判定根拠 |
-|---|---|---|
-| `supabase/migrations/0004_storage.sql` | `product-images` Storage バケット + ポリシー | Storage バケット一覧が空 `[]` |
-| `supabase/migrations/0008_ai_rls.sql` | `ai_provider_settings` の RLS ポリシー | pg_policies 一覧に ai_provider_settings が無い |
-| `supabase/migrations/0008_user_trigger.sql` | `handle_new_user` トリガー（auth.users→user_profiles 自動生成） | RPC `handle_new_user` が HTTP 404 |
+なし（すべて適用済み）。
 
-**Why:** DDL は PostgREST 経由では実行不可。ユーザーが Supabase ダッシュボード SQL Editor で手動実行する必要がある。
-**How to apply:** Supabase ダッシュボード → SQL Editor → ファイル内容を貼り付けて実行 → ここから該当行を削除する。
+## How to verify against live DB（service_role キー使用）
+
+- テーブル存在: `GET /rest/v1/<table>?select=*&limit=1` が 200 なら存在
+- 通常関数: `POST /rest/v1/rpc/<fn>` が 200 なら存在（404=未作成）
+- **トリガー関数は RPC で検証不可**: `RETURNS TRIGGER` 型は PostgREST が RPC 公開しないため必ず 404 になる。検証は admin API でテストユーザーを作成→user_profiles に行が出来るか確認→削除（user_profiles は auth.users への CASCADE で消える）。
+- RLS ポリシー: SQL Editor で `SELECT tablename, count(*) FROM pg_policies WHERE schemaname='public' GROUP BY tablename;`
