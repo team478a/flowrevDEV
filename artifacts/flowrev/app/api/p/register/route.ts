@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { enqueuePurchaseScenarios } from "@/lib/repositories/scenario-execution";
 
 const bodySchema = z.object({
   lpId: z.string().uuid(),
@@ -77,6 +78,22 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", lpId);
+
+  // purchase トリガーのシナリオをエンキュー（ベストエフォート）
+  try {
+    const { data: customerRow } = await admin
+      .from("customers")
+      .select("id")
+      .eq("email", email)
+      .eq("client_id", clientId)
+      .maybeSingle();
+    if (customerRow) {
+      const customerId = (customerRow as Record<string, unknown>).id as string;
+      await enqueuePurchaseScenarios(customerId, clientId, whiteLabelId);
+    }
+  } catch {
+    // エンキュー失敗は登録成功に影響させない
+  }
 
   return NextResponse.json({ ok: true });
 }

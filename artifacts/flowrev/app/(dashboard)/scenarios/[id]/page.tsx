@@ -12,6 +12,7 @@ import {
   updateStepAction,
   deleteStepAction,
 } from "@/features/scenarios/actions";
+import { ExecuteButton } from "@/features/scenarios/components/execute-button";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,16 @@ export default async function EditScenarioPage({ params }: Props) {
           updateAction={updateStepAction}
           deleteAction={deleteStepAction}
         />
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+        <div>
+          <h2 className="text-base font-semibold">テスト実行</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            pending 状態のログを delay_days に関わらず即時送信します。LP登録後に顧客が作成されていることが前提です。
+          </p>
+        </div>
+        <ExecuteButton />
       </section>
     </div>
   );
