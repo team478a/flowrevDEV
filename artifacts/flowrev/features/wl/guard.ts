@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { getSessionProfile } from "@/features/auth/session";
 import { roleHomePath } from "@/features/auth/role";
+import { getClientStatusById } from "@/lib/repositories/clients";
+import { getWhiteLabel } from "@/lib/repositories/white-labels";
 import type { SessionProfile } from "@/features/auth/session";
 
 /**
  * client_owner であることを保証する。middleware に加えた多層防御。
  * client_id 未割り当て（招待受諾直後など）でも通す（ダッシュボードは表示する）。
- * 権限がない場合は自分のホーム（未ログインなら /login）へリダイレクトする。
+ * clients.status が "suspended" の場合は /suspended へリダイレクトする。
  */
 export async function requireClientOwner(): Promise<SessionProfile> {
   const session = await getSessionProfile();
@@ -14,18 +16,22 @@ export async function requireClientOwner(): Promise<SessionProfile> {
     redirect("/login");
   }
   if (session.role !== "client_owner") {
-    // role=null/unknown の場合 roleHomePath は /dashboard を返し自己ループになるため
-    // 権限外は必ず /login へ退避する。
     redirect("/login");
   }
+
+  if (session.clientId) {
+    const status = await getClientStatusById(session.clientId);
+    if (status === "suspended") {
+      redirect("/suspended");
+    }
+  }
+
   return session;
 }
 
 /**
  * white_label_owner であることを保証する。middleware に加えた多層防御。
- * テナント配下の操作を行うページ/アクションの冒頭で呼ぶ。
- * 権限がない場合は自分のホーム（未ログインなら /login）へリダイレクトする。
- * white_label_id 未割り当ての場合もホームへ戻す。
+ * white_labels.status が "suspended" の場合は /suspended へリダイレクトする。
  */
 export async function requireWhiteLabelOwner(): Promise<
   SessionProfile & { whiteLabelId: string }
@@ -38,9 +44,13 @@ export async function requireWhiteLabelOwner(): Promise<
     redirect(roleHomePath(session.role));
   }
   if (!session.whiteLabelId) {
-    // white_label_id 未割り当て: roleHomePath は /wl/dashboard を返し自己ループになるため
-    // /login へ退避する。
     redirect("/login");
   }
+
+  const wl = await getWhiteLabel(session.whiteLabelId);
+  if (wl?.status === "suspended") {
+    redirect("/suspended");
+  }
+
   return { ...session, whiteLabelId: session.whiteLabelId };
 }

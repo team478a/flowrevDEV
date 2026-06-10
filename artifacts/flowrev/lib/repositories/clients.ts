@@ -16,6 +16,22 @@ export interface CreateClientInput {
 }
 
 /**
+ * client_id からステータスのみを取得する（ガードでのチェック用）。
+ * 存在しない場合は null を返す。
+ */
+export async function getClientStatusById(clientId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("clients")
+    .select("status")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (error) return null;
+  return (data?.status as string) ?? null;
+}
+
+/**
  * WL オーナー配下のクライアント一覧を取得する（管理者クライアント）。
  */
 export async function listClientsForWL(whiteLabelId: string): Promise<ClientRow[]> {
