@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Loader2, Send } from "lucide-react";
+import { CheckCircle2, Loader2, Send, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface LpContactFormProps {
   lpId: string;
+  isPaid?: boolean;
 }
 
-export function LpContactForm({ lpId }: LpContactFormProps) {
+export function LpContactForm({ lpId, isPaid = false }: LpContactFormProps) {
   const [isPending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,6 @@ export function LpContactForm({ lpId }: LpContactFormProps) {
           setError(data.error ?? "送信に失敗しました。もう一度お試しください。");
           return;
         }
-        // 有料商品: Stripe 決済画面へリダイレクト
         if (data.checkoutUrl) {
           window.location.href = data.checkoutUrl;
           return;
@@ -117,7 +117,12 @@ export function LpContactForm({ lpId }: LpContactFormProps) {
         {isPending ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            送信中…
+            {isPaid ? "決済画面に移動中…" : "送信中…"}
+          </>
+        ) : isPaid ? (
+          <>
+            <ShoppingCart className="h-4 w-4" />
+            今すぐ購入する
           </>
         ) : (
           <>
@@ -126,6 +131,12 @@ export function LpContactForm({ lpId }: LpContactFormProps) {
           </>
         )}
       </Button>
+
+      {isPaid && (
+        <p className="text-center text-xs text-gray-400">
+          送信後、Stripe の安全な決済画面に移動します。
+        </p>
+      )}
     </form>
   );
 }

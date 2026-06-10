@@ -15,6 +15,7 @@ const NAV_DEFS: NavDef[] = [
   { label: "顧客管理", href: "/customers", icon: "👥" },
   { label: "コース管理", href: "/members", icon: "🎓", featureKey: "member_site" },
   { label: "シナリオ", href: "/scenarios", icon: "⚡", featureKey: "scenarios" },
+  { label: "購入履歴", href: "/purchases", icon: "💳" },
   { label: "設定", href: "/settings", icon: "⚙️" },
 ];
 

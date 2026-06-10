@@ -102,3 +102,67 @@ export async function getPurchasesByCustomer(
   if (error) throw new Error(`購入履歴の取得に失敗: ${error.message}`);
   return (data ?? []) as PurchaseRow[];
 }
+
+export interface PurchaseListItem {
+  id: string;
+  customerName: string | null;
+  customerEmail: string | null;
+  productName: string | null;
+  amount: number;
+  currency: string;
+  paymentStatus: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+/** client_owner 向け：購入履歴一覧（顧客名・商品名付き） */
+export async function getPurchasesForClient(
+  clientId: string,
+): Promise<PurchaseListItem[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("purchases")
+    .select("id, amount, currency, payment_status, paid_at, created_at, customer_id, product_id")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (error) throw new Error(`購入履歴の取得に失敗: ${error.message}`);
+  const rows = (data ?? []) as Record<string, unknown>[];
+
+  const customerIds = [...new Set(rows.map((r) => r.customer_id as string).filter(Boolean))];
+  const productIds = [...new Set(rows.map((r) => r.product_id as string).filter(Boolean))];
+
+  const [{ data: customers }, { data: products }] = await Promise.all([
+    customerIds.length > 0
+      ? admin.from("customers").select("id, name, email").in("id", customerIds)
+      : Promise.resolve({ data: [] }),
+    productIds.length > 0
+      ? admin.from("products").select("id, name").in("id", productIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const customerMap = new Map(
+    ((customers ?? []) as Record<string, unknown>[]).map((c) => [c.id as string, c]),
+  );
+  const productMap = new Map(
+    ((products ?? []) as Record<string, unknown>[]).map((p) => [p.id as string, p]),
+  );
+
+  return rows.map((r) => {
+    const customer = customerMap.get(r.customer_id as string);
+    const product = productMap.get(r.product_id as string);
+    return {
+      id: r.id as string,
+      customerName: (customer?.name as string) ?? null,
+      customerEmail: (customer?.email as string) ?? null,
+      productName: (product?.name as string) ?? null,
+      amount: r.amount as number,
+      currency: (r.currency as string) ?? "jpy",
+      paymentStatus: (r.payment_status as string) ?? "pending",
+      paidAt: (r.paid_at as string) ?? null,
+      createdAt: r.created_at as string,
+    };
+  });
+}

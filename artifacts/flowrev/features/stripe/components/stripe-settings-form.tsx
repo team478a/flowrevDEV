@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2, Wifi, WifiOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { saveStripeSettingsAction } from "@/features/stripe/actions";
+import { saveStripeSettingsAction, testStripeConnectionAction } from "@/features/stripe/actions";
 import type { StripeSettingsMasked } from "@/lib/repositories/stripe-settings";
 
 interface StripeSettingsFormProps {
@@ -15,6 +15,7 @@ interface StripeSettingsFormProps {
 
 export function StripeSettingsForm({ current }: StripeSettingsFormProps) {
   const [isPending, startTransition] = useTransition();
+  const [isTesting, startTest] = useTransition();
   const [secretKey, setSecretKey] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [isLive, setIsLive] = useState(current?.isLive ?? false);
@@ -22,11 +23,13 @@ export function StripeSettingsForm({ current }: StripeSettingsFormProps) {
   const [showWebhook, setShowWebhook] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(false);
+    setTestResult(null);
     startTransition(async () => {
       const fd = new FormData();
       if (secretKey) fd.append("secretKey", secretKey);
@@ -40,6 +43,17 @@ export function StripeSettingsForm({ current }: StripeSettingsFormProps) {
         setSecretKey("");
         setWebhookSecret("");
       }
+    });
+  }
+
+  function handleTest() {
+    setTestResult(null);
+    startTest(async () => {
+      const result = await testStripeConnectionAction();
+      setTestResult({
+        ok: result.ok,
+        message: result.ok ? "Stripe に正常に接続できました。" : (result.error ?? "接続失敗"),
+      });
     });
   }
 
@@ -144,10 +158,46 @@ export function StripeSettingsForm({ current }: StripeSettingsFormProps) {
         </div>
       )}
 
-      <Button type="submit" disabled={isPending || noChanges} className="self-start">
-        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        保存する
-      </Button>
+      {/* 接続テスト結果 */}
+      {testResult && (
+        <div
+          className={`flex items-center gap-2 text-sm rounded px-3 py-2 border ${
+            testResult.ok
+              ? "text-green-700 bg-green-50 border-green-200"
+              : "text-red-700 bg-red-50 border-red-200"
+          }`}
+        >
+          {testResult.ok ? (
+            <Wifi className="h-4 w-4 shrink-0" />
+          ) : (
+            <WifiOff className="h-4 w-4 shrink-0" />
+          )}
+          <span>{testResult.message}</span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={isPending || noChanges}>
+          {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          保存する
+        </Button>
+
+        {current?.hasSecretKey && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isTesting}
+            onClick={handleTest}
+          >
+            {isTesting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wifi className="mr-2 h-4 w-4" />
+            )}
+            接続テスト
+          </Button>
+        )}
+      </div>
     </form>
   );
 }
