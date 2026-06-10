@@ -37,9 +37,66 @@
 - AI/メールキーは env ではなく DB に暗号化保存（`ENCRYPTION_KEY` シークレットで暗号化）。HQ 共通キー + ホワイトラベル毎の上書きの「ハイブリッド」方式。
 - ブランチ戦略: `feature/*` → `develop`（Vercel Preview / Supabase Dev）→ `main`（Vercel Production / Supabase Prod）。Replit からは `feature/*` のみ push。
 
+## 実装済み機能一覧（MVP完了）
+
+### Phase 1 — 認証・ロール・テナント・招待
+- メール＋パスワードによるログイン／ログアウト（Supabase Auth）
+- 4階層ロール（system_admin / white_label_owner / client_owner / customer）
+- ロール別ログイン後リダイレクト（/admin / /wl / /dashboard / /my）
+- RLS（Row Level Security）によるマルチテナントデータ分離
+- white_label_owner によるクライアント招待メール送信（Resend）
+- 招待URLからの client_owner 登録フロー（/register?token=...）
+- Supabase Auth ミドルウェア（セッション管理・公開ルート制御）
+
+### Phase 2 — 商品・LP管理
+- 商品 CRUD（/products）— タイトル・説明・価格・サムネイル・ステータス
+- LP 作成・編集・公開（/lp）— スラッグ自動生成・公開URL（/p/[slug]）
+- 公開LP フォーム（顧客登録 POST /api/p/register）
+- コンバージョンカウント自動インクリメント
+- white_label_id の自動セット（テナント分離）
+- Supabase Storage を使った商品画像アップロード
+
+### Phase 3 — 会員サイト（/my）
+- コース・レッスン CRUD（/members → コース管理、レッスン管理）
+- 顧客向けマイページ（/my）— コース一覧表示
+- レッスン視聴ページ（/my/courses/[id]）— テキスト・動画・ファイル対応
+- レッスン進捗記録（✅ 完了にする → POST /api/my/progress）
+- 進捗カウンター表示（N/M レッスン完了）
+- lesson_progress テーブルへの UPSERT
+
+### Phase 4 — 顧客管理・フォロー
+- 顧客一覧・詳細・新規登録（/customers）
+- CSV エクスポート（全件・未アクション絞り込み）— BOM付き UTF-8
+- フォローシナリオ CRUD（/scenarios）
+- シナリオステップ設定（delay_days・subject・body・channel）
+- LP 登録時の purchase シナリオ自動エンキュー
+- シナリオ実行バッチ API（POST /api/admin/scenarios/execute?force=true）
+- 管理画面「▶ テスト実行（即時）」ボタン
+- scenario_logs によるメール送信履歴管理（pending → sent / failed）
+
+### Phase 5 — AI 機能
+- Anthropic Claude API 連携（DB に暗号化保存、管理画面で設定）
+- OpenAI API 連携（同上）
+- 商品説明 AI 生成（POST /api/ai/generate-product）
+- LP 文章 AI 生成（POST /api/ai/generate-lp）
+- フォローメッセージ AI 生成（POST /api/ai/generate-follow）
+- AI 生成ボタン（AiGenerateButton コンポーネント）各編集画面に配置
+
+### 管理機能（system_admin）
+- ホワイトラベル作成・管理（/admin/white-labels）
+- プラン管理（/admin/plans）
+- メール設定（Resend API キー・送信元、/admin/settings/email）
+- AI設定（Anthropic / OpenAI キー管理、/admin/settings/ai・openai）
+- API キーの AES-256-GCM 暗号化保存（ENCRYPTION_KEY）
+
+### インフラ・デプロイ
+- GitHub リポジトリ（team478a/flowrevDEV）
+- Vercel 本番デプロイ（flowrev-dev-flowrev.vercel.app）
+- Supabase（flowrev-dev）— Auth・DB・RLS・Storage
+
 ## Product
 
-詳細は仕様書参照。Phase1 を最優先で、1タスクずつ実装する。
+詳細は仕様書参照。MVP（Phase 1〜5）完了。次は本番 Supabase（flowrev-prod）切り替えまたは将来フェーズ。
 
 ## User preferences
 
