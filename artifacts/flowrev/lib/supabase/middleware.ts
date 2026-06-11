@@ -21,6 +21,7 @@ const PUBLIC_PREFIXES = [
   "/p",
   "/api/p",
   "/api/webhooks",
+  "/api/admin/cron",
 ];
 
 function isPublicPath(pathname: string): boolean {
