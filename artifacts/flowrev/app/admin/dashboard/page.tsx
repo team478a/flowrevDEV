@@ -3,6 +3,7 @@ import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
 import { countUnprotectedVideos } from "@/lib/cloudflare/stream";
 import { VideoProtectionCard } from "@/features/dashboard/components/video-protection-card";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,32 @@ type VideoProtectionState =
   | { kind: "unconfigured" }
   | { kind: "error" }
   | { kind: "ok"; unprotected: number; total: number };
+
+async function fetchWhiteLabelCount(): Promise<number> {
+  try {
+    const supabase = createAdminClient();
+    const { count, error } = await supabase
+      .from("white_labels")
+      .select("*", { count: "exact", head: true });
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function fetchPlanCount(): Promise<number> {
+  try {
+    const supabase = createAdminClient();
+    const { count, error } = await supabase
+      .from("plans")
+      .select("*", { count: "exact", head: true });
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 async function fetchVideoProtectionState(): Promise<VideoProtectionState> {
   try {
@@ -30,9 +57,11 @@ async function fetchVideoProtectionState(): Promise<VideoProtectionState> {
 }
 
 export default async function AdminDashboardPage() {
-  const [session, videoState] = await Promise.all([
+  const [session, videoState, whiteLabelCount, planCount] = await Promise.all([
     getSessionProfile(),
     fetchVideoProtectionState(),
+    fetchWhiteLabelCount(),
+    fetchPlanCount(),
   ]);
 
   return (
@@ -47,18 +76,26 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-5 shadow-sm">
+        <Link
+          href="/admin/white-labels"
+          className="flex flex-col gap-1 rounded-xl border border-border bg-card p-5 shadow-sm transition-colors hover:bg-accent/30"
+        >
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             ホワイトラベル
           </span>
-          <span className="text-3xl font-bold text-foreground">—</span>
-        </div>
-        <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-5 shadow-sm">
+          <span className="text-3xl font-bold text-foreground">{whiteLabelCount}</span>
+          <span className="text-xs text-muted-foreground mt-0.5">件 · 一覧を見る →</span>
+        </Link>
+        <Link
+          href="/admin/plans"
+          className="flex flex-col gap-1 rounded-xl border border-border bg-card p-5 shadow-sm transition-colors hover:bg-accent/30"
+        >
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             プラン
           </span>
-          <span className="text-3xl font-bold text-foreground">—</span>
-        </div>
+          <span className="text-3xl font-bold text-foreground">{planCount}</span>
+          <span className="text-xs text-muted-foreground mt-0.5">件 · 一覧を見る →</span>
+        </Link>
         <VideoProtectionCard initialState={videoState} />
       </div>
 
