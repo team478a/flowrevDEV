@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Settings2, Clock, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Settings2, Clock, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight, ShieldCheck, ShieldAlert } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import {
   getCloudflareSettingsMasked,
@@ -11,6 +11,7 @@ import {
   getLatestProtectLog,
   getProtectLogsPage,
 } from "@/lib/repositories/cloudflare-protect-logs";
+import { getVideoCheckLogsPage } from "@/lib/repositories/video-check-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 import {
   AlertEmailsForm,
@@ -24,6 +25,7 @@ export const metadata = {
 };
 
 const PAGE_SIZE = 20;
+const CHECK_PAGE_SIZE = 20;
 
 function formatJst(isoString: string): string {
   return new Date(isoString).toLocaleString("ja-JP", {
@@ -38,6 +40,10 @@ function formatJst(isoString: string): string {
 
 function buildPageUrl(page: number): string {
   return `/admin/settings/video?page=${page}`;
+}
+
+function buildCheckPageUrl(checkPage: number): string {
+  return `/admin/settings/video?checkPage=${checkPage}`;
 }
 
 async function saveAlertEmailsAction(
@@ -71,14 +77,15 @@ async function saveAlertEmailsAction(
 export default async function VideoSettingsPage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: { page?: string; checkPage?: string };
 }) {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const currentCheckPage = Math.max(1, parseInt(searchParams.checkPage ?? "1", 10) || 1);
 
-  const [current, latestLog, logsPage] = await Promise.all([
+  const [current, latestLog, logsPage, checkLogsPage] = await Promise.all([
     getCloudflareSettingsMasked().catch(() => null),
     getLatestProtectLog().catch(() => null),
     getProtectLogsPage(currentPage, PAGE_SIZE).catch(() => ({
@@ -87,6 +94,12 @@ export default async function VideoSettingsPage({
       page: currentPage,
       pageSize: PAGE_SIZE,
     })),
+    getVideoCheckLogsPage(currentCheckPage, CHECK_PAGE_SIZE).catch(() => ({
+      logs: [],
+      total: 0,
+      page: currentCheckPage,
+      pageSize: CHECK_PAGE_SIZE,
+    })),
   ]);
 
   const isConfigured = !!current?.accountId && !!current?.hasApiToken;
@@ -94,6 +107,10 @@ export default async function VideoSettingsPage({
   const totalPages = Math.ceil(logsPage.total / PAGE_SIZE);
   const rangeStart = logsPage.total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, logsPage.total);
+
+  const checkTotalPages = Math.ceil(checkLogsPage.total / CHECK_PAGE_SIZE);
+  const checkRangeStart = checkLogsPage.total === 0 ? 0 : (currentCheckPage - 1) * CHECK_PAGE_SIZE + 1;
+  const checkRangeEnd = Math.min(currentCheckPage * CHECK_PAGE_SIZE, checkLogsPage.total);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -289,6 +306,111 @@ export default async function VideoSettingsPage({
           )}
         </div>
       )}
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">未保護動画チェック履歴</h2>
+          {checkLogsPage.total > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {checkRangeStart}–{checkRangeEnd} / 全 {checkLogsPage.total} 件
+            </span>
+          )}
+        </div>
+        {checkLogsPage.total === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            チェック履歴はまだありません。cron が実行されると自動的に記録されます。
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">日時（JST）</th>
+                    <th className="pb-2 pr-4 font-medium text-right">未保護</th>
+                    <th className="pb-2 pr-4 font-medium text-right">合計</th>
+                    <th className="pb-2 font-medium text-center">通知</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {checkLogsPage.logs.map((log) => {
+                    const hasUnprotected = log.unprotected > 0;
+                    return (
+                      <tr
+                        key={log.id}
+                        className={hasUnprotected ? "text-amber-700" : "text-foreground"}
+                      >
+                        <td className="py-2 pr-4 font-mono whitespace-nowrap">
+                          {formatJst(log.checkedAt)}
+                        </td>
+                        <td className="py-2 pr-4 text-right font-medium">
+                          {hasUnprotected ? (
+                            <span className="inline-flex items-center gap-1 text-amber-700">
+                              <ShieldAlert className="h-3 w-3" />
+                              {log.unprotected}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-green-600">
+                              <ShieldCheck className="h-3 w-3" />
+                              0
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4 text-right text-muted-foreground">
+                          {log.total}
+                        </td>
+                        <td className="py-2 text-center">
+                          {log.notified ? (
+                            <span className="inline-block rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 border border-amber-200">
+                              送信済
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/60">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {checkTotalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
+                <Link
+                  href={buildCheckPageUrl(currentCheckPage - 1)}
+                  aria-disabled={currentCheckPage <= 1}
+                  className={[
+                    "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                    currentCheckPage <= 1
+                      ? "pointer-events-none border-border text-muted-foreground/40 bg-muted/30"
+                      : "border-border bg-background text-foreground hover:bg-muted",
+                  ].join(" ")}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  前へ
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  {currentCheckPage} / {checkTotalPages} ページ
+                </span>
+                <Link
+                  href={buildCheckPageUrl(currentCheckPage + 1)}
+                  aria-disabled={currentCheckPage >= checkTotalPages}
+                  className={[
+                    "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                    currentCheckPage >= checkTotalPages
+                      ? "pointer-events-none border-border text-muted-foreground/40 bg-muted/30"
+                      : "border-border bg-background text-foreground hover:bg-muted",
+                  ].join(" ")}
+                >
+                  次へ
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold mb-1 text-foreground">

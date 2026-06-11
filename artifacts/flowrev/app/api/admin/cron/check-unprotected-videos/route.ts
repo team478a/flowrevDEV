@@ -6,6 +6,7 @@ import {
 } from "@/lib/repositories/cloudflare-settings";
 import { countUnprotectedVideos } from "@/lib/cloudflare/stream";
 import { sendUnprotectedAlert } from "@/lib/email/send-unprotected-alert";
+import { insertVideoCheckLog } from "@/lib/repositories/video-check-logs";
 
 /**
  * GET /api/admin/cron/check-unprotected-videos  ← Vercel Cron はこちらを呼ぶ
@@ -71,10 +72,17 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
   const nowIso = new Date().toISOString();
 
   if (countResult.unprotected === 0) {
-    await updateCronTimestamps({
-      lastCheckedAt: nowIso,
-      lastUnprotectedCount: 0,
-    }).catch(() => {});
+    await Promise.all([
+      updateCronTimestamps({
+        lastCheckedAt: nowIso,
+        lastUnprotectedCount: 0,
+      }).catch(() => {}),
+      insertVideoCheckLog({
+        unprotected: 0,
+        total: countResult.total,
+        notified: false,
+      }).catch(() => {}),
+    ]);
     return NextResponse.json({
       ok: true,
       unprotected: 0,
@@ -87,10 +95,17 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
   const toEmails = await resolveAlertEmails(settings.alertEmails ?? null);
 
   if (toEmails.length === 0) {
-    await updateCronTimestamps({
-      lastCheckedAt: nowIso,
-      lastUnprotectedCount: countResult.unprotected,
-    }).catch(() => {});
+    await Promise.all([
+      updateCronTimestamps({
+        lastCheckedAt: nowIso,
+        lastUnprotectedCount: countResult.unprotected,
+      }).catch(() => {}),
+      insertVideoCheckLog({
+        unprotected: countResult.unprotected,
+        total: countResult.total,
+        notified: false,
+      }).catch(() => {}),
+    ]);
     return NextResponse.json(
       {
         ok: false,
@@ -128,10 +143,17 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
       appUrl,
     });
   } catch (e) {
-    await updateCronTimestamps({
-      lastCheckedAt: nowIso,
-      lastUnprotectedCount: countResult.unprotected,
-    }).catch(() => {});
+    await Promise.all([
+      updateCronTimestamps({
+        lastCheckedAt: nowIso,
+        lastUnprotectedCount: countResult.unprotected,
+      }).catch(() => {}),
+      insertVideoCheckLog({
+        unprotected: countResult.unprotected,
+        total: countResult.total,
+        notified: false,
+      }).catch(() => {}),
+    ]);
     return NextResponse.json(
       {
         ok: false,
@@ -144,11 +166,18 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  await updateCronTimestamps({
-    lastCheckedAt: nowIso,
-    lastAlertedAt: nowIso,
-    lastUnprotectedCount: countResult.unprotected,
-  }).catch(() => {});
+  await Promise.all([
+    updateCronTimestamps({
+      lastCheckedAt: nowIso,
+      lastAlertedAt: nowIso,
+      lastUnprotectedCount: countResult.unprotected,
+    }).catch(() => {}),
+    insertVideoCheckLog({
+      unprotected: countResult.unprotected,
+      total: countResult.total,
+      notified: true,
+    }).catch(() => {}),
+  ]);
 
   return NextResponse.json({
     ok: true,

@@ -20,6 +20,7 @@ When the user confirms it has been executed (and it is verified against the live
 
 ## Pending
 
+- ⏳ `add_video_check_logs.sql` — `video_check_logs` テーブル作成（id, checked_at, unprotected, total, notified）＋ RLS ポリシー。未実行だと cron チェック結果が DB に保存されず、動画設定ページのチェック履歴が空のまま。
 - ⏳ `add_alert_emails_to_cloudflare_settings.sql` — `cloudflare_settings` テーブルに `alert_emails text` カラムを追加。未実行だと動画設定ページのアラート通知先フォームが保存時エラーになる（カラムが存在しないため）。
 - ⏳ `0009_public_lp_policy.sql` — 公開LP用ビュー `public_landing_pages`（必須）。未実行だと `/p/[slug]` が常に404。SQL Editor で実行が必要。
 - ⏳ `0010_stripe_payments.sql` — Stripe 決済サポート追加。`purchases.stripe_session_id`、`stripe_accounts.webhook_secret_enc` 追加と RLS ポリシー設定。Stripe 機能を有効化する前に SQL Editor で実行が必要。
