@@ -15,6 +15,7 @@ import { getVideoCheckLogsPage, getVideoCheckLogsForChart } from "@/lib/reposito
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 import { VideoCheckTrendChart } from "@/features/admin/components/video-check-trend-chart";
 import { CheckUnprotectedVideosButton } from "@/features/admin/components/check-unprotected-videos-button";
+import { ChartLimitSelector } from "@/features/admin/components/chart-limit-selector";
 import {
   AlertEmailsForm,
   type AlertEmailsFormState,
@@ -40,12 +41,31 @@ function formatJst(isoString: string): string {
   });
 }
 
-function buildPageUrl(page: number): string {
-  return `/admin/settings/video?page=${page}`;
+function buildPageUrl(page: number, checkPage: number, chartLimit: number): string {
+  const p = new URLSearchParams({
+    page: String(page),
+    checkPage: String(checkPage),
+    chartLimit: String(chartLimit),
+  });
+  return `/admin/settings/video?${p.toString()}`;
 }
 
-function buildCheckPageUrl(checkPage: number): string {
-  return `/admin/settings/video?checkPage=${checkPage}`;
+function buildCheckPageUrl(checkPage: number, page: number, chartLimit: number): string {
+  const p = new URLSearchParams({
+    page: String(page),
+    checkPage: String(checkPage),
+    chartLimit: String(chartLimit),
+  });
+  return `/admin/settings/video?${p.toString()}`;
+}
+
+function buildChartLimitUrl(chartLimit: number, page: number, checkPage: number): string {
+  const p = new URLSearchParams({
+    page: String(page),
+    checkPage: String(checkPage),
+    chartLimit: String(chartLimit),
+  });
+  return `/admin/settings/video?${p.toString()}`;
 }
 
 async function saveAlertEmailsAction(
@@ -76,16 +96,25 @@ async function saveAlertEmailsAction(
   return { error: null, success: true };
 }
 
+const CHART_LIMIT_OPTIONS = [30, 60, 0] as const;
+type ChartLimit = (typeof CHART_LIMIT_OPTIONS)[number];
+
+function parseChartLimit(raw: string | undefined): ChartLimit {
+  const n = parseInt(raw ?? "30", 10);
+  return (CHART_LIMIT_OPTIONS as readonly number[]).includes(n) ? (n as ChartLimit) : 30;
+}
+
 export default async function VideoSettingsPage({
   searchParams,
 }: {
-  searchParams: { page?: string; checkPage?: string };
+  searchParams: { page?: string; checkPage?: string; chartLimit?: string };
 }) {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const currentCheckPage = Math.max(1, parseInt(searchParams.checkPage ?? "1", 10) || 1);
+  const currentChartLimit = parseChartLimit(searchParams.chartLimit);
 
   const [current, latestLog, logsPage, checkLogsPage, chartData] = await Promise.all([
     getCloudflareSettingsMasked().catch(() => null),
@@ -102,7 +131,7 @@ export default async function VideoSettingsPage({
       page: currentCheckPage,
       pageSize: CHECK_PAGE_SIZE,
     })),
-    getVideoCheckLogsForChart(30).catch(() => []),
+    getVideoCheckLogsForChart(currentChartLimit).catch(() => []),
   ]);
 
   const isConfigured = !!current?.accountId && !!current?.hasApiToken;
@@ -275,7 +304,7 @@ export default async function VideoSettingsPage({
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
               <Link
-                href={buildPageUrl(currentPage - 1)}
+                href={buildPageUrl(currentPage - 1, currentCheckPage, currentChartLimit)}
                 aria-disabled={currentPage <= 1}
                 className={[
                   "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -293,7 +322,7 @@ export default async function VideoSettingsPage({
               </span>
 
               <Link
-                href={buildPageUrl(currentPage + 1)}
+                href={buildPageUrl(currentPage + 1, currentCheckPage, currentChartLimit)}
                 aria-disabled={currentPage >= totalPages}
                 className={[
                   "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -312,11 +341,22 @@ export default async function VideoSettingsPage({
 
       {chartData.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-base font-semibold mb-1 text-foreground">
-            未保護件数 推移グラフ
-          </h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-semibold text-foreground">
+              未保護件数 推移グラフ
+            </h2>
+            <ChartLimitSelector
+              currentLimit={currentChartLimit}
+              buildUrl={(limit) =>
+                buildChartLimitUrl(limit, currentPage, currentCheckPage)
+              }
+            />
+          </div>
           <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
-            直近 {chartData.length} 件のチェック結果（未保護数・合計数）の推移です。
+            {currentChartLimit === 0
+              ? `全 ${chartData.length} 件`
+              : `直近 ${chartData.length} 件`}
+            のチェック結果（未保護数・合計数）の推移です。
           </p>
           <VideoCheckTrendChart data={chartData} />
         </div>
@@ -396,7 +436,7 @@ export default async function VideoSettingsPage({
             {checkTotalPages > 1 && (
               <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
                 <Link
-                  href={buildCheckPageUrl(currentCheckPage - 1)}
+                  href={buildCheckPageUrl(currentCheckPage - 1, currentPage, currentChartLimit)}
                   aria-disabled={currentCheckPage <= 1}
                   className={[
                     "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -412,7 +452,7 @@ export default async function VideoSettingsPage({
                   {currentCheckPage} / {checkTotalPages} ページ
                 </span>
                 <Link
-                  href={buildCheckPageUrl(currentCheckPage + 1)}
+                  href={buildCheckPageUrl(currentCheckPage + 1, currentPage, currentChartLimit)}
                   aria-disabled={currentCheckPage >= checkTotalPages}
                   className={[
                     "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",

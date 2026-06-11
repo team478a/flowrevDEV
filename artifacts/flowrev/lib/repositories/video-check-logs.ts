@@ -37,17 +37,22 @@ export interface VideoCheckLogChartPoint {
   total: number;
 }
 
-/** グラフ表示用に直近 N 件を古い順で返す */
+/** グラフ表示用に直近 N 件を古い順で返す。limit=0 で全件取得 */
 export async function getVideoCheckLogsForChart(
   limit = 30,
 ): Promise<VideoCheckLogChartPoint[]> {
   const admin = createAdminClient();
 
-  const { data, error } = await admin
+  let query = admin
     .from("video_check_logs")
     .select("checked_at, unprotected, total")
-    .order("checked_at", { ascending: false })
-    .limit(limit);
+    .order("checked_at", { ascending: false });
+
+  if (limit > 0) {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw new Error(`チャートデータの取得に失敗: ${error.message}`);
 
