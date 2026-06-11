@@ -1,6 +1,17 @@
 "use client";
 
-import { format, isAfter, isValid, parseISO } from "date-fns";
+import {
+  format,
+  isAfter,
+  isValid,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  startOfQuarter,
+  endOfQuarter,
+  subQuarters,
+} from "date-fns";
 import { ja } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
@@ -18,6 +29,38 @@ const NON_CUSTOM_PRESETS: { label: string; value: ChartPreset }[] = [
   { label: "過去30日", value: "30d" },
   { label: "全期間", value: "all" },
 ];
+
+function getCalendarPresets(): { label: string; range: DateRange }[] {
+  const today = new Date();
+  return [
+    {
+      label: "今月",
+      range: { from: startOfMonth(today), to: today },
+    },
+    {
+      label: "先月",
+      range: {
+        from: startOfMonth(subMonths(today, 1)),
+        to: endOfMonth(subMonths(today, 1)),
+      },
+    },
+    {
+      label: "過去3ヶ月",
+      range: { from: startOfMonth(subMonths(today, 3)), to: today },
+    },
+    {
+      label: "今四半期",
+      range: { from: startOfQuarter(today), to: today },
+    },
+    {
+      label: "前四半期",
+      range: {
+        from: startOfQuarter(subQuarters(today, 1)),
+        to: endOfQuarter(subQuarters(today, 1)),
+      },
+    },
+  ];
+}
 
 interface Props {
   currentPreset: ChartPreset;
@@ -68,6 +111,14 @@ export function ChartDateRangeSelector({
     router.push(buildUrl("custom", from, to));
   }
 
+  function handleCalendarPreset(preset: { label: string; range: DateRange }) {
+    const from = format(preset.range.from!, "yyyy-MM-dd");
+    const to = preset.range.to ? format(preset.range.to, "yyyy-MM-dd") : from;
+    setRange(preset.range);
+    setOpen(false);
+    router.push(buildUrl("custom", from, to));
+  }
+
   const rangeLabel = (() => {
     const from = range?.from
       ? format(range.from, "yyyy/MM/dd", { locale: ja })
@@ -80,30 +131,50 @@ export function ChartDateRangeSelector({
     return `${from} 〜 ${to}`;
   })();
 
+  const calendarPresets = getCalendarPresets();
+
   const calendarPopover = (
     <PopoverContent align="end" className="w-auto p-0">
-      <Calendar
-        mode="range"
-        selected={range}
-        onSelect={setRange}
-        numberOfMonths={2}
-        locale={ja}
-        disabled={(date) => isAfter(date, new Date())}
-      />
-      <div className="flex justify-end gap-2 border-t px-4 py-3">
-        <button
-          onClick={() => setOpen(false)}
-          className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
-        >
-          キャンセル
-        </button>
-        <button
-          onClick={handleApply}
-          disabled={!range?.from}
-          className="rounded-md border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          適用
-        </button>
+      <div className="flex">
+        <div className="flex flex-col gap-1 border-r p-3 min-w-[100px]">
+          <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            クイック選択
+          </p>
+          {calendarPresets.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => handleCalendarPreset(preset)}
+              className="rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-col">
+          <Calendar
+            mode="range"
+            selected={range}
+            onSelect={setRange}
+            numberOfMonths={2}
+            locale={ja}
+            disabled={(date) => isAfter(date, new Date())}
+          />
+          <div className="flex justify-end gap-2 border-t px-4 py-3">
+            <button
+              onClick={() => setOpen(false)}
+              className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleApply}
+              disabled={!range?.from}
+              className="rounded-md border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              適用
+            </button>
+          </div>
+        </div>
       </div>
     </PopoverContent>
   );
