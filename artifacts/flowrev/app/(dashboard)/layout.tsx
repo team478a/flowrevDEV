@@ -17,6 +17,7 @@ const NAV_DEFS: NavDef[] = [
   { label: "シナリオ", href: "/scenarios", icon: "⚡", featureKey: "scenarios" },
   { label: "購入履歴", href: "/purchases", icon: "💳" },
   { label: "設定", href: "/settings", icon: "⚙️" },
+  { label: "マニュアル", href: "/manual", icon: "📖" },
 ];
 
 export default async function DashboardLayout({
