@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCloudflareWebhookSecret } from "@/lib/repositories/cloudflare-settings";
+import { insertWebhookLog } from "@/lib/repositories/cloudflare-webhook-logs";
 import { createHmac, timingSafeEqual } from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export async function POST(req: NextRequest) {
   if (!webhookSecret) {
     if (isProd) {
       console.error("[CF Stream Webhook] Webhook シークレットが未設定です（本番環境）。");
+      await insertWebhookLog({
+        result: "sig_error",
+        detail: "Webhook シークレットが未設定のため受信を拒否しました。",
+      });
       return NextResponse.json(
         { error: "Webhook シークレットが未設定のため受信を拒否しました。" },
         { status: 401 },
@@ -39,6 +44,10 @@ export async function POST(req: NextRequest) {
   } else {
     const sigHeader = req.headers.get("webhook-signature") ?? "";
     if (!verifySignature(rawBody, sigHeader, webhookSecret)) {
+      await insertWebhookLog({
+        result: "sig_error",
+        detail: "署名検証に失敗しました。",
+      });
       return NextResponse.json({ error: "署名検証に失敗しました。" }, { status: 401 });
     }
   }
@@ -47,11 +56,19 @@ export async function POST(req: NextRequest) {
   try {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
   } catch {
+    await insertWebhookLog({
+      result: "parse_error",
+      detail: "不正なJSONです。",
+    });
     return NextResponse.json({ error: "不正なJSONです。" }, { status: 400 });
   }
 
   const videoId = payload.uid as string | undefined;
   if (!videoId) {
+    await insertWebhookLog({
+      result: "parse_error",
+      detail: "uid が見つかりません。",
+    });
     return NextResponse.json({ error: "uid が見つかりません。" }, { status: 400 });
   }
 
@@ -73,12 +90,31 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[CF Stream Webhook] DB更新エラー:", error.message);
+      await insertWebhookLog({
+        videoId,
+        status: videoStatus,
+        result: "db_error",
+        detail: error.message,
+      });
       return NextResponse.json({ error: "DB更新に失敗しました。" }, { status: 500 });
     }
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error("[CF Stream Webhook] 予期しないエラー:", e);
+    await insertWebhookLog({
+      videoId,
+      status: videoStatus,
+      result: "db_error",
+      detail: `予期しないエラー: ${msg}`,
+    });
     return NextResponse.json({ error: "内部エラー" }, { status: 500 });
   }
+
+  await insertWebhookLog({
+    videoId,
+    status: videoStatus,
+    result: "success",
+  });
 
   return NextResponse.json({ received: true, videoId, status: videoStatus });
 }

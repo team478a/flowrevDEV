@@ -6,7 +6,9 @@ import {
   getCloudflareSettingsMasked,
   upsertCloudflareSettings,
 } from "@/lib/repositories/cloudflare-settings";
+import { getRecentWebhookLogs } from "@/lib/repositories/cloudflare-webhook-logs";
 import { CloudflareSettingsForm } from "@/features/admin/components/cloudflare-settings-form";
+import { WebhookLogsTable } from "@/features/admin/components/webhook-logs-table";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +46,10 @@ export default async function CloudflareSettingsPage() {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
-  const current = await getCloudflareSettingsMasked().catch(() => null);
+  const [current, recentLogs] = await Promise.all([
+    getCloudflareSettingsMasked().catch(() => null),
+    getRecentWebhookLogs(20).catch(() => []),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -65,6 +70,14 @@ export default async function CloudflareSettingsPage() {
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <CloudflareSettingsForm current={current} action={saveCloudflareSettingsAction} />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-base font-semibold mb-1 pb-4 border-b border-border">
+          Webhook 受信ログ
+          <span className="ml-2 text-xs font-normal text-muted-foreground">直近 20 件</span>
+        </h2>
+        <WebhookLogsTable logs={recentLogs} />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
