@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
 
 const CF_STREAM_BASE = "https://api.cloudflare.com/client/v4/accounts";
+const ALLOWED_ROLES = ["client_owner", "system_admin"] as const;
 
 /**
  * POST /api/admin/video/upload-url
  * Cloudflare Stream の TUS アップロード URL を生成する。
+ * client_owner / system_admin のみ利用可能。
  * Body: { fileSize: number, filename: string }
  * Response: { uploadUrl: string, videoId: string }
  */
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  const session = await getSessionProfile();
+  if (!session) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
+  }
+  if (!session.role || !(ALLOWED_ROLES as readonly string[]).includes(session.role)) {
+    return NextResponse.json({ error: "この操作を行う権限がありません。" }, { status: 403 });
   }
 
   let fileSize: number;
