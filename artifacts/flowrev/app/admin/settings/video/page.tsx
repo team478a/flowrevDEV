@@ -15,7 +15,7 @@ import { getVideoCheckLogsPage, getVideoCheckLogsForChart } from "@/lib/reposito
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 import { VideoCheckTrendChart } from "@/features/admin/components/video-check-trend-chart";
 import { CheckUnprotectedVideosButton } from "@/features/admin/components/check-unprotected-videos-button";
-import { ChartLimitSelector } from "@/features/admin/components/chart-limit-selector";
+import { ChartDateRangeSelector, type ChartPreset } from "@/features/admin/components/chart-date-range-selector";
 import {
   AlertEmailsForm,
   type AlertEmailsFormState,
@@ -41,30 +41,33 @@ function formatJst(isoString: string): string {
   });
 }
 
-function buildPageUrl(page: number, checkPage: number, chartLimit: number): string {
-  const p = new URLSearchParams({
-    page: String(page),
-    checkPage: String(checkPage),
-    chartLimit: String(chartLimit),
-  });
+function buildPageUrl(
+  page: number,
+  checkPage: number,
+  chartPreset: string,
+  chartFrom: string,
+  chartTo: string,
+): string {
+  const p = new URLSearchParams({ page: String(page), checkPage: String(checkPage), chartPreset });
+  if (chartPreset === "custom") {
+    if (chartFrom) p.set("chartFrom", chartFrom);
+    if (chartTo) p.set("chartTo", chartTo);
+  }
   return `/admin/settings/video?${p.toString()}`;
 }
 
-function buildCheckPageUrl(checkPage: number, page: number, chartLimit: number): string {
-  const p = new URLSearchParams({
-    page: String(page),
-    checkPage: String(checkPage),
-    chartLimit: String(chartLimit),
-  });
-  return `/admin/settings/video?${p.toString()}`;
-}
-
-function buildChartLimitUrl(chartLimit: number, page: number, checkPage: number): string {
-  const p = new URLSearchParams({
-    page: String(page),
-    checkPage: String(checkPage),
-    chartLimit: String(chartLimit),
-  });
+function buildCheckPageUrl(
+  checkPage: number,
+  page: number,
+  chartPreset: string,
+  chartFrom: string,
+  chartTo: string,
+): string {
+  const p = new URLSearchParams({ page: String(page), checkPage: String(checkPage), chartPreset });
+  if (chartPreset === "custom") {
+    if (chartFrom) p.set("chartFrom", chartFrom);
+    if (chartTo) p.set("chartTo", chartTo);
+  }
   return `/admin/settings/video?${p.toString()}`;
 }
 
@@ -96,25 +99,63 @@ async function saveAlertEmailsAction(
   return { error: null, success: true };
 }
 
-const CHART_LIMIT_OPTIONS = [30, 60, 0] as const;
-type ChartLimit = (typeof CHART_LIMIT_OPTIONS)[number];
+const VALID_PRESETS: ChartPreset[] = ["7d", "30d", "all", "custom"];
 
-function parseChartLimit(raw: string | undefined): ChartLimit {
-  const n = parseInt(raw ?? "30", 10);
-  return (CHART_LIMIT_OPTIONS as readonly number[]).includes(n) ? (n as ChartLimit) : 30;
+function parseChartPreset(raw: string | undefined): ChartPreset {
+  return VALID_PRESETS.includes(raw as ChartPreset) ? (raw as ChartPreset) : "30d";
+}
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function presetToDateRange(
+  preset: ChartPreset,
+  chartFrom: string,
+  chartTo: string,
+): { from?: string; to?: string } {
+  const now = new Date();
+  if (preset === "7d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 7);
+    return { from: toIsoDate(from), to: toIsoDate(now) };
+  }
+  if (preset === "30d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 30);
+    return { from: toIsoDate(from), to: toIsoDate(now) };
+  }
+  if (preset === "all") {
+    return {};
+  }
+  return {
+    from: chartFrom || undefined,
+    to: chartTo || undefined,
+  };
 }
 
 export default async function VideoSettingsPage({
   searchParams,
 }: {
-  searchParams: { page?: string; checkPage?: string; chartLimit?: string };
+  searchParams: {
+    page?: string;
+    checkPage?: string;
+    chartPreset?: string;
+    chartFrom?: string;
+    chartTo?: string;
+    chartLimit?: string;
+  };
 }) {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const currentCheckPage = Math.max(1, parseInt(searchParams.checkPage ?? "1", 10) || 1);
-  const currentChartLimit = parseChartLimit(searchParams.chartLimit);
+
+  const currentChartPreset = parseChartPreset(searchParams.chartPreset);
+  const currentChartFrom = searchParams.chartFrom ?? "";
+  const currentChartTo = searchParams.chartTo ?? "";
+  const chartDateRange = presetToDateRange(currentChartPreset, currentChartFrom, currentChartTo);
 
   const [current, latestLog, logsPage, checkLogsPage, chartData] = await Promise.all([
     getCloudflareSettingsMasked().catch(() => null),
@@ -131,7 +172,7 @@ export default async function VideoSettingsPage({
       page: currentCheckPage,
       pageSize: CHECK_PAGE_SIZE,
     })),
-    getVideoCheckLogsForChart(currentChartLimit).catch(() => []),
+    getVideoCheckLogsForChart(chartDateRange).catch(() => []),
   ]);
 
   const isConfigured = !!current?.accountId && !!current?.hasApiToken;
@@ -304,7 +345,7 @@ export default async function VideoSettingsPage({
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
               <Link
-                href={buildPageUrl(currentPage - 1, currentCheckPage, currentChartLimit)}
+                href={buildPageUrl(currentPage - 1, currentCheckPage, currentChartPreset, currentChartFrom, currentChartTo)}
                 aria-disabled={currentPage <= 1}
                 className={[
                   "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -322,7 +363,7 @@ export default async function VideoSettingsPage({
               </span>
 
               <Link
-                href={buildPageUrl(currentPage + 1, currentCheckPage, currentChartLimit)}
+                href={buildPageUrl(currentPage + 1, currentCheckPage, currentChartPreset, currentChartFrom, currentChartTo)}
                 aria-disabled={currentPage >= totalPages}
                 className={[
                   "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -339,28 +380,34 @@ export default async function VideoSettingsPage({
         </div>
       )}
 
-      {chartData.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-base font-semibold text-foreground">
-              未保護件数 推移グラフ
-            </h2>
-            <ChartLimitSelector
-              currentLimit={currentChartLimit}
-              buildUrl={(limit) =>
-                buildChartLimitUrl(limit, currentPage, currentCheckPage)
-              }
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
-            {currentChartLimit === 0
-              ? `全 ${chartData.length} 件`
-              : `直近 ${chartData.length} 件`}
-            のチェック結果（未保護数・合計数）の推移です。
-          </p>
-          <VideoCheckTrendChart data={chartData} />
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-semibold text-foreground">
+            未保護件数 推移グラフ
+          </h2>
+          <ChartDateRangeSelector
+            currentPreset={currentChartPreset}
+            currentFrom={currentChartFrom}
+            currentTo={currentChartTo}
+          />
         </div>
-      )}
+        <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
+          {currentChartPreset === "7d" && "過去7日間"}
+          {currentChartPreset === "30d" && "過去30日間"}
+          {currentChartPreset === "all" && "全期間"}
+          {currentChartPreset === "custom" && (currentChartFrom || currentChartTo
+            ? `${currentChartFrom || "開始日未設定"} 〜 ${currentChartTo || "終了日未設定"}`
+            : "期間指定なし")}
+          {" の"}チェック結果 {chartData.length} 件（未保護数・合計数）の推移です。
+        </p>
+        {chartData.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            選択した期間にデータがありません。期間を変更してお試しください。
+          </p>
+        ) : (
+          <VideoCheckTrendChart data={chartData} />
+        )}
+      </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="flex items-center justify-between mb-1 pb-0">
@@ -436,7 +483,7 @@ export default async function VideoSettingsPage({
             {checkTotalPages > 1 && (
               <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
                 <Link
-                  href={buildCheckPageUrl(currentCheckPage - 1, currentPage, currentChartLimit)}
+                  href={buildCheckPageUrl(currentCheckPage - 1, currentPage, currentChartPreset, currentChartFrom, currentChartTo)}
                   aria-disabled={currentCheckPage <= 1}
                   className={[
                     "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
@@ -452,7 +499,7 @@ export default async function VideoSettingsPage({
                   {currentCheckPage} / {checkTotalPages} ページ
                 </span>
                 <Link
-                  href={buildCheckPageUrl(currentCheckPage + 1, currentPage, currentChartLimit)}
+                  href={buildCheckPageUrl(currentCheckPage + 1, currentPage, currentChartPreset, currentChartFrom, currentChartTo)}
                   aria-disabled={currentCheckPage >= checkTotalPages}
                   className={[
                     "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",

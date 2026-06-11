@@ -37,9 +37,14 @@ export interface VideoCheckLogChartPoint {
   total: number;
 }
 
-/** グラフ表示用に直近 N 件を古い順で返す。limit=0 で全件取得 */
+export interface VideoCheckLogChartOptions {
+  from?: string;
+  to?: string;
+}
+
+/** グラフ表示用にデータを古い順で返す。from/to で日付範囲を絞り込める */
 export async function getVideoCheckLogsForChart(
-  limit = 30,
+  options: VideoCheckLogChartOptions = {},
 ): Promise<VideoCheckLogChartPoint[]> {
   const admin = createAdminClient();
 
@@ -48,8 +53,11 @@ export async function getVideoCheckLogsForChart(
     .select("checked_at, unprotected, total")
     .order("checked_at", { ascending: false });
 
-  if (limit > 0) {
-    query = query.limit(limit);
+  if (options.from) {
+    query = query.gte("checked_at", `${options.from}T00:00:00.000Z`);
+  }
+  if (options.to) {
+    query = query.lte("checked_at", `${options.to}T23:59:59.999Z`);
   }
 
   const { data, error } = await query;
