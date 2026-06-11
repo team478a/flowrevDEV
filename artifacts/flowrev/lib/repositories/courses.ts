@@ -22,7 +22,9 @@ export interface LessonRow {
   courseId: string;
   title: string;
   contentType: string;
+  videoType: string;
   videoUrl: string | null;
+  cloudflareVideoId: string | null;
   textContent: string | null;
   fileUrl: string | null;
   durationSeconds: number | null;
@@ -52,7 +54,9 @@ export interface CreateLessonInput {
   courseId: string;
   title: string;
   contentType: string;
+  videoType?: string;
   videoUrl?: string;
+  cloudflareVideoId?: string;
   textContent?: string;
   fileUrl?: string;
   durationSeconds?: number;
@@ -62,7 +66,9 @@ export interface CreateLessonInput {
 export interface UpdateLessonInput {
   title?: string;
   contentType?: string;
+  videoType?: string;
   videoUrl?: string | null;
+  cloudflareVideoId?: string | null;
   textContent?: string | null;
   fileUrl?: string | null;
   durationSeconds?: number | null;
@@ -73,7 +79,7 @@ const COURSE_COLS =
   "id, white_label_id, client_id, product_id, title, description, thumbnail_url, status, sort_order, created_at, updated_at";
 
 const LESSON_COLS =
-  "id, white_label_id, client_id, course_id, title, content_type, video_url, text_content, file_url, duration_seconds, sort_order, status, created_at, updated_at";
+  "id, white_label_id, client_id, course_id, title, content_type, video_type, video_url, cloudflare_video_id, text_content, file_url, duration_seconds, sort_order, status, created_at, updated_at";
 
 function mapCourse(r: Record<string, unknown>): CourseRow {
   return {
@@ -100,7 +106,9 @@ function mapLesson(r: Record<string, unknown>): LessonRow {
     courseId: r.course_id as string,
     title: r.title as string,
     contentType: (r.content_type as string) ?? "video",
+    videoType: (r.video_type as string) ?? "url",
     videoUrl: (r.video_url as string) ?? null,
+    cloudflareVideoId: (r.cloudflare_video_id as string) ?? null,
     textContent: (r.text_content as string) ?? null,
     fileUrl: (r.file_url as string) ?? null,
     durationSeconds: (r.duration_seconds as number) ?? null,
@@ -237,7 +245,9 @@ export async function addLesson(input: CreateLessonInput): Promise<LessonRow> {
       course_id: input.courseId,
       title: input.title,
       content_type: input.contentType,
+      video_type: input.videoType ?? "url",
       video_url: input.videoUrl ?? null,
+      cloudflare_video_id: input.cloudflareVideoId ?? null,
       text_content: input.textContent ?? null,
       file_url: input.fileUrl ?? null,
       duration_seconds: input.durationSeconds ?? null,
@@ -263,7 +273,9 @@ export async function updateLesson(
     .update({
       ...(input.title !== undefined && { title: input.title }),
       ...(input.contentType !== undefined && { content_type: input.contentType }),
+      ...(input.videoType !== undefined && { video_type: input.videoType }),
       ...(input.videoUrl !== undefined && { video_url: input.videoUrl }),
+      ...(input.cloudflareVideoId !== undefined && { cloudflare_video_id: input.cloudflareVideoId }),
       ...(input.textContent !== undefined && { text_content: input.textContent }),
       ...(input.fileUrl !== undefined && { file_url: input.fileUrl }),
       ...(input.durationSeconds !== undefined && {

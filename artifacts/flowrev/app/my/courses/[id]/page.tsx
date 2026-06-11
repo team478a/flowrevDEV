@@ -22,6 +22,19 @@ interface Props {
 }
 
 function LessonContent({ lesson }: { lesson: LessonRow }) {
+  if (lesson.contentType === "video" && lesson.videoType === "cloudflare" && lesson.cloudflareVideoId) {
+    return (
+      <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
+        <iframe
+          src={`https://iframe.cloudflarestream.com/${lesson.cloudflareVideoId}`}
+          className="w-full h-full"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+          allowFullScreen
+          title={lesson.title}
+        />
+      </div>
+    );
+  }
   if (lesson.contentType === "video" && lesson.videoUrl) {
     return (
       <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">

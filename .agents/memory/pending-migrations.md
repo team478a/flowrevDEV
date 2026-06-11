@@ -22,6 +22,7 @@ When the user confirms it has been executed (and it is verified against the live
 
 - ⏳ `0009_public_lp_policy.sql` — 公開LP用ビュー `public_landing_pages`（必須）。未実行だと `/p/[slug]` が常に404。SQL Editor で実行が必要。
 - ⏳ `0010_stripe_payments.sql` — Stripe 決済サポート追加。`purchases.stripe_session_id`、`stripe_accounts.webhook_secret_enc` 追加と RLS ポリシー設定。Stripe 機能を有効化する前に SQL Editor で実行が必要。
+- ⏳ `add_cloudflare_stream.sql` — Cloudflare Stream 動画ホスティング対応。`cloudflare_settings` テーブル作成＋`lessons.video_type`・`lessons.cloudflare_video_id` カラム追加。Cloudflare Stream 機能を使う前に SQL Editor で実行が必要（`prod_setup.sql` のセクション 13 でも同内容を管理）。
 
 ## How to verify against live DB（service_role キー使用）
 

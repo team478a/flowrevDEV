@@ -28,6 +28,9 @@ export async function addLessonAction(
   const existing = await getCourse(courseId);
   if (!existing) return { error: "コースが見つかりません。" };
 
+  const videoType = ((formData.get("videoType") as string | null) ?? "url").trim() || "url";
+  const cloudflareVideoId = ((formData.get("cloudflareVideoId") as string | null) ?? "").trim();
+
   const parsed = lessonSchema.safeParse({
     title: formData.get("title"),
     contentType: formData.get("contentType"),
@@ -49,7 +52,9 @@ export async function addLessonAction(
       courseId,
       title: parsed.data.title,
       contentType: parsed.data.contentType,
+      videoType,
       videoUrl: parsed.data.videoUrl,
+      cloudflareVideoId: cloudflareVideoId || undefined,
       textContent: parsed.data.textContent,
       fileUrl: parsed.data.fileUrl,
       durationSeconds: parsed.data.durationSeconds,
@@ -74,6 +79,9 @@ export async function updateLessonAction(
   if (session?.role !== "client_owner")
     return { error: "この操作を行う権限がありません。" };
 
+  const videoType = ((formData.get("videoType") as string | null) ?? "url").trim() || "url";
+  const cloudflareVideoId = ((formData.get("cloudflareVideoId") as string | null) ?? "").trim();
+
   const parsed = lessonSchema.safeParse({
     title: formData.get("title"),
     contentType: formData.get("contentType"),
@@ -92,7 +100,9 @@ export async function updateLessonAction(
     await updateLesson(lessonId, {
       title: parsed.data.title,
       contentType: parsed.data.contentType,
+      videoType,
       videoUrl: parsed.data.videoUrl ?? null,
+      cloudflareVideoId: cloudflareVideoId || null,
       textContent: parsed.data.textContent ?? null,
       fileUrl: parsed.data.fileUrl ?? null,
       durationSeconds: parsed.data.durationSeconds ?? null,

@@ -33,11 +33,18 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   file: "ファイル",
 };
 
+const VIDEO_TYPE_LABELS: Record<string, string> = {
+  url: "外部URL",
+  cloudflare: "☁ CF Stream",
+};
+
 function lessonToForm(lesson: LessonRow): LessonFormData {
   return {
     title: lesson.title,
     contentType: lesson.contentType,
+    videoType: lesson.videoType ?? "url",
     videoUrl: lesson.videoUrl ?? "",
+    cloudflareVideoId: lesson.cloudflareVideoId ?? "",
     textContent: lesson.textContent ?? "",
     fileUrl: lesson.fileUrl ?? "",
     durationSeconds: lesson.durationSeconds ? String(lesson.durationSeconds) : "",
@@ -49,7 +56,9 @@ function buildFormData(values: LessonFormData): FormData {
   const fd = new FormData();
   fd.set("title", values.title);
   fd.set("contentType", values.contentType);
+  fd.set("videoType", values.videoType);
   fd.set("videoUrl", values.videoUrl);
+  fd.set("cloudflareVideoId", values.cloudflareVideoId);
   fd.set("textContent", values.textContent);
   fd.set("fileUrl", values.fileUrl);
   fd.set("durationSeconds", values.durationSeconds);
@@ -144,6 +153,11 @@ export function LessonEditor({
               <Badge variant="outline" className="text-xs">
                 {CONTENT_TYPE_LABELS[lesson.contentType] ?? lesson.contentType}
               </Badge>
+              {lesson.contentType === "video" && (
+                <Badge variant="secondary" className="text-xs">
+                  {VIDEO_TYPE_LABELS[lesson.videoType ?? "url"] ?? lesson.videoType}
+                </Badge>
+              )}
               {lesson.status === "draft" && (
                 <Badge variant="secondary" className="text-xs">下書き</Badge>
               )}

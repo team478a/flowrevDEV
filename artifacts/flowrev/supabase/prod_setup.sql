@@ -893,6 +893,30 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS line_user_id TEXT;
 ALTER TABLE landing_pages ADD COLUMN IF NOT EXISTS line_add_url TEXT;
 
 -- ============================================================
+-- 13: Cloudflare Stream 動画ホスティング対応
+-- ============================================================
+
+-- Cloudflare システム設定テーブル（system_admin のみ管理）
+CREATE TABLE IF NOT EXISTS cloudflare_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id TEXT,
+  api_token_enc TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE cloudflare_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "system_admin: cloudflare_settings 全操作"
+  ON cloudflare_settings FOR ALL
+  USING (get_user_role() = 'system_admin')
+  WITH CHECK (get_user_role() = 'system_admin');
+
+-- lessons テーブルに動画タイプ・Cloudflare 動画 ID カラムを追加
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS video_type TEXT DEFAULT 'url';
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS cloudflare_video_id TEXT;
+
+-- ============================================================
 -- 完了
 -- ============================================================
 -- このSQLを実行後、Supabase Auth の設定で以下を行うこと:
