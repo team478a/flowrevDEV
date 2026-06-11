@@ -50,8 +50,19 @@ async function countTable(
   return count ?? 0;
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export interface GetDashboardStatsOptions {
+  whiteLabelId?: string | null;
+}
+
+export async function getDashboardStats(
+  options: GetDashboardStatsOptions = {},
+): Promise<DashboardStats> {
   const supabase = createClient();
+  const { whiteLabelId } = options;
+
+  const tenantFilter: Record<string, string> = whiteLabelId
+    ? { white_label_id: whiteLabelId }
+    : {};
 
   const [
     customerTotal,
@@ -61,28 +72,46 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     courseTotal,
     scenarioActive,
   ] = await Promise.all([
-    countTable(supabase, "customers"),
-    supabase
-      .from("customers")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfWeekIso())
-      .then(({ count }) => count ?? 0),
-    countTable(supabase, "products"),
-    countTable(supabase, "landing_pages"),
-    countTable(supabase, "courses"),
-    countTable(supabase, "follow_scenarios", { status: "active" }),
+    countTable(supabase, "customers", tenantFilter),
+    (() => {
+      let q = supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startOfWeekIso());
+      if (whiteLabelId) q = q.eq("white_label_id", whiteLabelId);
+      return q.then(({ count }) => count ?? 0);
+    })(),
+    countTable(supabase, "products", tenantFilter),
+    countTable(supabase, "landing_pages", tenantFilter),
+    countTable(supabase, "courses", tenantFilter),
+    countTable(supabase, "follow_scenarios", {
+      ...tenantFilter,
+      status: "active",
+    }),
   ]);
 
   // 未アクション：last_action_at が null、または閾値より古い
-  const { count: staleCount } = await supabase
-    .from("customers")
-    .select("id", { count: "exact", head: true })
-    .lt("last_action_at", inactiveThresholdIso());
+  const staleQ = (() => {
+    let q = supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .lt("last_action_at", inactiveThresholdIso());
+    if (whiteLabelId) q = q.eq("white_label_id", whiteLabelId);
+    return q;
+  })();
 
-  const { count: untouchedCount } = await supabase
-    .from("customers")
-    .select("id", { count: "exact", head: true })
-    .is("last_action_at", null);
+  const untouchedQ = (() => {
+    let q = supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .is("last_action_at", null);
+    if (whiteLabelId) q = q.eq("white_label_id", whiteLabelId);
+    return q;
+  })();
+
+  const [{ count: staleCount }, { count: untouchedCount }] = await Promise.all(
+    [staleQ, untouchedQ],
+  );
 
   const customerInactive = (staleCount ?? 0) + (untouchedCount ?? 0);
 
@@ -99,13 +128,20 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
 export async function getRecentCustomers(
   limit = 5,
+  options: GetDashboardStatsOptions = {},
 ): Promise<RecentCustomer[]> {
   const supabase = createClient();
-  const { data } = await supabase
+  const { whiteLabelId } = options;
+
+  let q = supabase
     .from("customers")
     .select("id, name, email, source, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (whiteLabelId) q = q.eq("white_label_id", whiteLabelId);
+
+  const { data } = await q;
 
   return (data ?? []).map((r) => {
     const row = r as Record<string, unknown>;

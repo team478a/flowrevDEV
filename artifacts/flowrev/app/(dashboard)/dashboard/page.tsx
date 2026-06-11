@@ -21,6 +21,7 @@ export const metadata = {
 
 export default async function DashboardPage() {
   const session = await getSessionProfile();
+  const whiteLabelId = session?.whiteLabelId ?? null;
 
   let stats = {
     customerTotal: 0,
@@ -35,8 +36,8 @@ export default async function DashboardPage() {
 
   try {
     [stats, recentCustomers] = await Promise.all([
-      getDashboardStats(),
-      getRecentCustomers(5),
+      getDashboardStats({ whiteLabelId }),
+      getRecentCustomers(5, { whiteLabelId }),
     ]);
   } catch {
     // Supabase 未接続時はゼロ表示
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* KPIカード 1行目 */}
+      {/* KPIカード 1行目 — 顧客・LP・商品 */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           href="/customers"
@@ -86,12 +87,10 @@ export default async function DashboardPage() {
           }
         />
         <KpiCard
-          href="/customers?filter=inactive"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          label="未アクション"
-          value={stats.customerInactive}
-          sub="7日以上アクションなし"
-          warn={stats.customerInactive > 0}
+          href="/lp"
+          icon={<LayoutTemplate className="h-4 w-4" />}
+          label="LP数"
+          value={stats.lpTotal}
         />
         <KpiCard
           href="/products"
@@ -100,14 +99,16 @@ export default async function DashboardPage() {
           value={stats.productTotal}
         />
         <KpiCard
-          href="/lp"
-          icon={<LayoutTemplate className="h-4 w-4" />}
-          label="LP数"
-          value={stats.lpTotal}
+          href="/customers?filter=inactive"
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="未アクション"
+          value={stats.customerInactive}
+          sub="7日以上アクションなし"
+          warn={stats.customerInactive > 0}
         />
       </div>
 
-      {/* KPIカード 2行目 */}
+      {/* KPIカード 2行目 — コース・シナリオ */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           href="/members"
