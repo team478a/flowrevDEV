@@ -14,6 +14,7 @@ import {
 import { getVideoCheckLogsPage, getVideoCheckLogsForChart } from "@/lib/repositories/video-check-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 import { VideoCheckTrendChart } from "@/features/admin/components/video-check-trend-chart";
+import { CheckUnprotectedVideosButton } from "@/features/admin/components/check-unprotected-videos-button";
 import {
   AlertEmailsForm,
   type AlertEmailsFormState,
@@ -322,7 +323,7 @@ export default async function VideoSettingsPage({
       )}
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+        <div className="flex items-center justify-between mb-1 pb-0">
           <h2 className="text-base font-semibold text-foreground">未保護動画チェック履歴</h2>
           {checkLogsPage.total > 0 && (
             <span className="text-xs text-muted-foreground">
@@ -330,9 +331,12 @@ export default async function VideoSettingsPage({
             </span>
           )}
         </div>
+        <div className="mb-4 pb-4 border-b border-border">
+          <CheckUnprotectedVideosButton />
+        </div>
         {checkLogsPage.total === 0 ? (
           <p className="text-sm text-muted-foreground">
-            チェック履歴はまだありません。cron が実行されると自動的に記録されます。
+            チェック履歴はまだありません。「今すぐチェック」を実行するか、cron の自動実行をお待ちください。
           </p>
         ) : (
           <>

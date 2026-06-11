@@ -7,6 +7,7 @@ import {
 import { countUnprotectedVideos } from "@/lib/cloudflare/stream";
 import { sendUnprotectedAlert } from "@/lib/email/send-unprotected-alert";
 import { insertVideoCheckLog } from "@/lib/repositories/video-check-logs";
+import { getSessionProfile } from "@/features/auth/session";
 
 /**
  * GET /api/admin/cron/check-unprotected-videos  ← Vercel Cron はこちらを呼ぶ
@@ -38,7 +39,10 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
       ? authHeader.slice(7)
       : authHeader;
     if (token !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const session = await getSessionProfile();
+      if (!session || session.role !== "system_admin") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
   }
 
