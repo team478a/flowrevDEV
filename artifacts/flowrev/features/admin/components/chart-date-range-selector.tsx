@@ -1,15 +1,22 @@
 "use client";
 
+import { format, isAfter, isValid, parseISO } from "date-fns";
+import { ja } from "date-fns/locale";
+import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
+import type { DateRange } from "react-day-picker";
 import { useRouter, useSearchParams } from "next/navigation";
+
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export type ChartPreset = "7d" | "30d" | "all" | "custom";
 
-const PRESETS: { label: string; value: ChartPreset }[] = [
+const NON_CUSTOM_PRESETS: { label: string; value: ChartPreset }[] = [
   { label: "過去7日", value: "7d" },
   { label: "過去30日", value: "30d" },
   { label: "全期間", value: "all" },
-  { label: "カスタム", value: "custom" },
 ];
 
 interface Props {
@@ -25,8 +32,20 @@ export function ChartDateRangeSelector({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [customFrom, setCustomFrom] = useState(currentFrom);
-  const [customTo, setCustomTo] = useState(currentTo);
+  const [open, setOpen] = useState(false);
+
+  const initialFrom =
+    currentFrom && isValid(parseISO(currentFrom))
+      ? parseISO(currentFrom)
+      : undefined;
+  const initialTo =
+    currentTo && isValid(parseISO(currentTo))
+      ? parseISO(currentTo)
+      : undefined;
+
+  const [range, setRange] = useState<DateRange | undefined>(
+    initialFrom ? { from: initialFrom, to: initialTo } : undefined
+  );
 
   function buildUrl(preset: ChartPreset, from = "", to = ""): string {
     const p = new URLSearchParams(searchParams.toString());
@@ -41,27 +60,63 @@ export function ChartDateRangeSelector({
     return `?${p.toString()}`;
   }
 
-  function handlePresetClick(preset: ChartPreset) {
-    if (preset !== "custom") {
-      router.push(buildUrl(preset));
-    } else {
-      router.push(buildUrl("custom", customFrom, customTo));
-    }
+  function handleApply() {
+    if (!range?.from) return;
+    const from = format(range.from, "yyyy-MM-dd");
+    const to = range.to ? format(range.to, "yyyy-MM-dd") : from;
+    setOpen(false);
+    router.push(buildUrl("custom", from, to));
   }
 
-  function handleApply() {
-    router.push(buildUrl("custom", customFrom, customTo));
-  }
+  const rangeLabel = (() => {
+    const from = range?.from
+      ? format(range.from, "yyyy/MM/dd", { locale: ja })
+      : null;
+    const to = range?.to
+      ? format(range.to, "yyyy/MM/dd", { locale: ja })
+      : null;
+    if (!from) return "期間を選択";
+    if (!to || from === to) return from;
+    return `${from} 〜 ${to}`;
+  })();
+
+  const calendarPopover = (
+    <PopoverContent align="end" className="w-auto p-0">
+      <Calendar
+        mode="range"
+        selected={range}
+        onSelect={setRange}
+        numberOfMonths={2}
+        locale={ja}
+        disabled={(date) => isAfter(date, new Date())}
+      />
+      <div className="flex justify-end gap-2 border-t px-4 py-3">
+        <button
+          onClick={() => setOpen(false)}
+          className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+        >
+          キャンセル
+        </button>
+        <button
+          onClick={handleApply}
+          disabled={!range?.from}
+          className="rounded-md border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          適用
+        </button>
+      </div>
+    </PopoverContent>
+  );
 
   return (
     <div className="flex flex-col gap-2 items-end">
       <div className="flex items-center gap-1">
-        {PRESETS.map((opt) => {
+        {NON_CUSTOM_PRESETS.map((opt) => {
           const isActive = opt.value === currentPreset;
           return (
             <button
               key={opt.value}
-              onClick={() => handlePresetClick(opt.value)}
+              onClick={() => router.push(buildUrl(opt.value))}
               className={[
                 "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
                 isActive
@@ -73,30 +128,34 @@ export function ChartDateRangeSelector({
             </button>
           );
         })}
+
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={[
+                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                currentPreset === "custom"
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+              ].join(" ")}
+            >
+              カスタム
+            </button>
+          </PopoverTrigger>
+          {calendarPopover}
+        </Popover>
       </div>
 
       {currentPreset === "custom" && (
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <span className="text-xs text-muted-foreground">〜</span>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(e) => setCustomTo(e.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <button
-            onClick={handleApply}
-            className="rounded-md border border-primary bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-          >
-            適用
-          </button>
-        </div>
+        <button
+          onClick={() => setOpen(true)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+          <span>{rangeLabel}</span>
+        </button>
       )}
     </div>
   );
