@@ -18,6 +18,7 @@ export interface SendUnprotectedAlertInput {
   totalCount: number;
   checkedAt: string;
   videos: UnprotectedVideoItem[];
+  appUrl?: string;
 }
 
 /**
@@ -78,6 +79,10 @@ function buildVideoListText(videos: UnprotectedVideoItem[]): string {
 }
 
 function buildAlertText(input: SendUnprotectedAlertInput): string {
+  const adminUrl = input.appUrl
+    ? `${input.appUrl.replace(/\/$/, "")}/admin/settings/cloudflare`
+    : null;
+
   return [
     "FlowRev 自動チェック通知",
     "",
@@ -88,6 +93,7 @@ function buildAlertText(input: SendUnprotectedAlertInput): string {
     "",
     "requireSignedURLs が false の動画が検出されました。",
     "管理画面（動画設定 → 一括保護）から保護処理を実行してください。",
+    adminUrl ? `\n▶ 一括保護ページを開く:\n${adminUrl}` : "",
     "",
     "このメールは FlowRev のスケジュールバッチが自動送信しています。",
   ]
@@ -146,6 +152,23 @@ function buildVideoListHtml(videos: UnprotectedVideoItem[]): string {
             </table>`;
 }
 
+function buildAdminLinkButtonHtml(appUrl: string | undefined): string {
+  if (!appUrl) return "";
+  const href = `${appUrl.replace(/\/$/, "")}/admin/settings/cloudflare`;
+  return `
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <tr>
+                <td style="border-radius:8px;background:#dc2626;">
+                  <a href="${escapeHtml(href)}"
+                    target="_blank"
+                    style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;line-height:1;">
+                    ▶ 一括保護ページを開く
+                  </a>
+                </td>
+              </tr>
+            </table>`;
+}
+
 function buildAlertHtml(input: SendUnprotectedAlertInput): string {
   return `<!doctype html>
 <html lang="ja">
@@ -191,8 +214,9 @@ function buildAlertHtml(input: SendUnprotectedAlertInput): string {
             <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#3f3f46;">
               <code style="font-family:monospace;background:#f4f4f5;padding:2px 6px;border-radius:4px;">requireSignedURLs</code>
               が無効の動画が残っています。<br>
-              管理画面の <strong>動画設定 → 一括保護</strong> から保護処理を実行してください。
+              下のボタンから管理画面の <strong>動画設定 → 一括保護</strong> を開いて保護処理を実行してください。
             </p>
+            ${buildAdminLinkButtonHtml(input.appUrl)}
             <p style="margin:0;font-size:12px;line-height:1.6;color:#a1a1aa;">
               このメールは FlowRev のスケジュールバッチが自動送信しています。
             </p>

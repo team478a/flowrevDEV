@@ -113,6 +113,11 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
     minute: "2-digit",
   });
 
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXTAUTH_URL ??
+    undefined;
+
   try {
     await sendUnprotectedAlert({
       toEmails,
@@ -120,6 +125,7 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
       totalCount: countResult.total,
       checkedAt,
       videos: countResult.videos,
+      appUrl,
     });
   } catch (e) {
     await updateCronTimestamps({
