@@ -1,13 +1,9 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Settings2 } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
-import {
-  getCloudflareSettingsMasked,
-  upsertCloudflareSettings,
-} from "@/lib/repositories/cloudflare-settings";
+import { getCloudflareSettingsMasked } from "@/lib/repositories/cloudflare-settings";
 import { getLatestProtectLog } from "@/lib/repositories/cloudflare-protect-logs";
-import { CloudflareSettingsForm } from "@/features/admin/components/cloudflare-settings-form";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 import { Clock } from "lucide-react";
 
@@ -16,32 +12,6 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "動画設定（Cloudflare Stream）| FlowRev",
 };
-
-async function saveVideoSettingAction(
-  _prev: { error: string | null; success?: boolean },
-  formData: FormData,
-): Promise<{ error: string | null; success?: boolean }> {
-  "use server";
-  const session = await getSessionProfile();
-  if (session?.role !== "system_admin") redirect("/login");
-
-  const accountId = ((formData.get("accountId") as string | null) ?? "").trim();
-  const apiToken = ((formData.get("apiToken") as string | null) ?? "").trim();
-  const webhookSecret = ((formData.get("webhookSecret") as string | null) ?? "").trim();
-
-  try {
-    await upsertCloudflareSettings({
-      accountId: accountId || undefined,
-      apiToken: apiToken || undefined,
-      webhookSecret: webhookSecret || undefined,
-    });
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "保存に失敗しました。" };
-  }
-
-  revalidatePath("/admin/settings/video");
-  return { error: null, success: true };
-}
 
 function formatJst(isoString: string): string {
   return new Date(isoString).toLocaleString("ja-JP", {
@@ -63,6 +33,9 @@ export default async function VideoSettingsPage() {
     getLatestProtectLog().catch(() => null),
   ]);
 
+  const isConfigured =
+    !!current?.accountId && !!current?.hasApiToken;
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -81,7 +54,36 @@ export default async function VideoSettingsPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <CloudflareSettingsForm current={current} action={saveVideoSettingAction} />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold text-foreground">
+              Cloudflare 認証情報
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              アカウント ID・API トークン・Webhook シークレットの設定は Cloudflare 設定ページで行います。
+            </p>
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              {isConfigured ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 border border-green-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  設定済み
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  未設定
+                </span>
+              )}
+            </div>
+          </div>
+          <Link
+            href="/admin/settings/cloudflare"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-muted transition-colors"
+          >
+            <Settings2 className="h-4 w-4" />
+            Cloudflare 設定へ
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -132,14 +134,21 @@ export default async function VideoSettingsPage() {
             {" "}にログインし、対象アカウントを開く
           </li>
           <li>
-            右上の「マイプロフィール」→「API トークン」→「トークンを作成」→ 
+            右上の「マイプロフィール」→「API トークン」→「トークンを作成」→
             テンプレート「Cloudflare Stream」を選択してトークンを発行する
           </li>
           <li>
             アカウント ID はダッシュボードの右サイドバー（「アカウント ID」）からコピーする
           </li>
           <li>
-            取得した値を上のフォームに入力して保存する
+            取得した値を{" "}
+            <Link
+              href="/admin/settings/cloudflare"
+              className="text-primary underline"
+            >
+              Cloudflare 設定ページ
+            </Link>
+            {" "}に入力して保存する
           </li>
           <li>
             設定後、client_owner がレッスン編集画面から動画ファイルをアップロードできるようになります
