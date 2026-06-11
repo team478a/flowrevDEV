@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 interface ProtectResult {
@@ -82,21 +83,28 @@ export function ProtectAllVideosButton() {
       const json = (await res.json()) as ProtectResult & { error?: string };
 
       if (!res.ok) {
-        setActionState({
-          kind: "error",
-          message: json.error ?? "一括保護に失敗しました。",
-        });
+        const message = json.error ?? "一括保護に失敗しました。";
+        setActionState({ kind: "error", message });
+        toast.error("一括保護に失敗しました", { description: message });
         return;
       }
 
       setActionState({ kind: "success", result: json });
+      if (json.failed > 0) {
+        toast.warning(
+          `一括保護が完了しました（${json.updated}件更新・${json.failed}件失敗）`,
+          { description: "失敗したものは画面内のエラー詳細をご確認ください。" },
+        );
+      } else {
+        toast.success(`一括保護が完了しました（${json.updated}件更新）`);
+      }
       await fetchCount();
       router.refresh();
     } catch (e) {
-      setActionState({
-        kind: "error",
-        message: e instanceof Error ? e.message : "通信エラーが発生しました。",
-      });
+      const message =
+        e instanceof Error ? e.message : "通信エラーが発生しました。";
+      setActionState({ kind: "error", message });
+      toast.error("一括保護に失敗しました", { description: message });
     }
   }
 
