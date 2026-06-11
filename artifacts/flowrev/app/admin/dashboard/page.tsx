@@ -71,6 +71,12 @@ export default async function AdminDashboardPage() {
           >
             AI設定 (OpenAI)
           </Link>
+          <Link
+            href="/admin/settings/cloudflare"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            Cloudflare 設定
+          </Link>
         </div>
       </div>
     </div>

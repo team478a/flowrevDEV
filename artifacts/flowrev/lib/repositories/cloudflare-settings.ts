@@ -5,24 +5,27 @@ import { encrypt, decrypt } from "@/lib/crypto";
 export interface CloudflareSettingsMasked {
   accountId: string | null;
   hasApiToken: boolean;
+  hasWebhookSecret: boolean;
 }
 
 export interface CloudflareSettingsResolved {
   accountId: string;
   apiToken: string;
+  webhookSecret?: string;
 }
 
 export interface UpsertCloudflareSettingsInput {
   accountId?: string;
   apiToken?: string;
+  webhookSecret?: string;
 }
 
-/** 管理画面用：API トークンをマスクして返す */
+/** 管理画面用：API トークンと Webhook シークレットをマスクして返す */
 export async function getCloudflareSettingsMasked(): Promise<CloudflareSettingsMasked | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cloudflare_settings")
-    .select("account_id, api_token_enc")
+    .select("account_id, api_token_enc, webhook_secret_enc")
     .limit(1)
     .maybeSingle();
 
@@ -33,6 +36,7 @@ export async function getCloudflareSettingsMasked(): Promise<CloudflareSettingsM
   return {
     accountId: (row.account_id as string) ?? null,
     hasApiToken: !!(row.api_token_enc as string),
+    hasWebhookSecret: !!(row.webhook_secret_enc as string),
   };
 }
 
@@ -41,7 +45,7 @@ export async function getCloudflareSettingsResolved(): Promise<CloudflareSetting
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cloudflare_settings")
-    .select("account_id, api_token_enc")
+    .select("account_id, api_token_enc, webhook_secret_enc")
     .limit(1)
     .maybeSingle();
 
@@ -54,7 +58,31 @@ export async function getCloudflareSettingsResolved(): Promise<CloudflareSetting
   return {
     accountId: row.account_id as string,
     apiToken: decrypt(row.api_token_enc as string),
+    webhookSecret: row.webhook_secret_enc
+      ? decrypt(row.webhook_secret_enc as string)
+      : undefined,
   };
+}
+
+/** Cloudflare Webhook シークレットのみ復号して返す（Webhook ルート用） */
+export async function getCloudflareWebhookSecret(): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("cloudflare_settings")
+    .select("webhook_secret_enc")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[CF Webhook] シークレット取得エラー:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const row = data as Record<string, unknown>;
+  if (!row.webhook_secret_enc) return null;
+
+  return decrypt(row.webhook_secret_enc as string);
 }
 
 /** Cloudflare 設定を upsert する（最大 1 行） */
@@ -65,7 +93,7 @@ export async function upsertCloudflareSettings(
 
   const { data: existing } = await admin
     .from("cloudflare_settings")
-    .select("id, account_id, api_token_enc")
+    .select("id, account_id, api_token_enc, webhook_secret_enc")
     .limit(1)
     .maybeSingle();
 
@@ -84,6 +112,12 @@ export async function upsertCloudflareSettings(
     payload.api_token_enc = encrypt(input.apiToken);
   } else if (existingRow?.api_token_enc) {
     payload.api_token_enc = existingRow.api_token_enc;
+  }
+
+  if (input.webhookSecret) {
+    payload.webhook_secret_enc = encrypt(input.webhookSecret);
+  } else if (existingRow?.webhook_secret_enc) {
+    payload.webhook_secret_enc = existingRow.webhook_secret_enc;
   }
 
   if (existingRow) {

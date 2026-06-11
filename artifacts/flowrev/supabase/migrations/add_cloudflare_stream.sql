@@ -34,3 +34,6 @@ ALTER TABLE lessons ADD COLUMN IF NOT EXISTS cloudflare_video_status TEXT DEFAUL
 UPDATE lessons
 SET cloudflare_video_status = 'ready'
 WHERE cloudflare_video_id IS NOT NULL;
+
+-- Webhook シークレット（暗号化保存）— Stream Webhook の署名検証に使用
+ALTER TABLE cloudflare_settings ADD COLUMN IF NOT EXISTS webhook_secret_enc TEXT;

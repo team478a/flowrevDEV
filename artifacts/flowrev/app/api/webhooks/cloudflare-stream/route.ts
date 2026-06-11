@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCloudflareWebhookSecret } from "@/lib/repositories/cloudflare-settings";
 import { createHmac, timingSafeEqual } from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -13,28 +14,28 @@ export const dynamic = "force-dynamic";
  *
  * Webhook シークレット検証:
  *   Header: Webhook-Signature: ts=<timestamp>,v1=<hmac-sha256-hex>
- *   HMAC-SHA256( key=CLOUDFLARE_STREAM_WEBHOOK_SECRET, msg="<timestamp>.<body>" )
+ *   HMAC-SHA256( key=<webhook_secret>, msg="<timestamp>.<body>" )
  *
- * 設定方法:
- *   Cloudflare Dashboard → Stream → Webhooks でエンドポイント URL と
- *   シークレットを登録し、発行されたシークレットを
- *   CLOUDFLARE_STREAM_WEBHOOK_SECRET 環境変数に設定する。
+ * シークレットは管理画面（/admin/settings/cloudflare）または
+ * /admin/settings/video から DB に暗号化保存して管理する。
+ * 環境変数 CLOUDFLARE_STREAM_WEBHOOK_SECRET はフォールバックとして参照される。
  */
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-
-  const webhookSecret = process.env.CLOUDFLARE_STREAM_WEBHOOK_SECRET;
   const isProd = process.env.NODE_ENV === "production";
+
+  const dbSecret = await getCloudflareWebhookSecret().catch(() => null);
+  const webhookSecret = dbSecret ?? process.env.CLOUDFLARE_STREAM_WEBHOOK_SECRET ?? null;
 
   if (!webhookSecret) {
     if (isProd) {
-      console.error("[CF Stream Webhook] CLOUDFLARE_STREAM_WEBHOOK_SECRET が未設定です（本番環境）。");
+      console.error("[CF Stream Webhook] Webhook シークレットが未設定です（本番環境）。");
       return NextResponse.json(
         { error: "Webhook シークレットが未設定のため受信を拒否しました。" },
         { status: 401 },
       );
     }
-    console.warn("[CF Stream Webhook] CLOUDFLARE_STREAM_WEBHOOK_SECRET 未設定: 署名検証をスキップします（開発環境のみ許容）。");
+    console.warn("[CF Stream Webhook] シークレット未設定: 署名検証をスキップします（開発環境のみ許容）。");
   } else {
     const sigHeader = req.headers.get("webhook-signature") ?? "";
     if (!verifySignature(rawBody, sigHeader, webhookSecret)) {

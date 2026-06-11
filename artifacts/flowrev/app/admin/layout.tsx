@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "メール設定", href: "/admin/settings/email", icon: "✉️" },
   { label: "AI設定 (Anthropic)", href: "/admin/settings/ai", icon: "✨" },
   { label: "AI設定 (OpenAI)", href: "/admin/settings/openai", icon: "🤖" },
+  { label: "Cloudflare 設定", href: "/admin/settings/cloudflare", icon: "☁️" },
 ];
 
 export default async function AdminLayout({
