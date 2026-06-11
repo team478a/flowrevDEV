@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import {
   getCloudflareSettingsMasked,
   upsertCloudflareSettings,
 } from "@/lib/repositories/cloudflare-settings";
 import { CloudflareSettingsForm } from "@/features/admin/components/cloudflare-settings-form";
+import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +64,15 @@ export default async function VideoSettingsPage() {
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <CloudflareSettingsForm current={current} action={saveVideoSettingAction} />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-base font-semibold mb-1 text-foreground">既存動画の一括保護</h2>
+        <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
+          API 設定完了後、この機能が有効になります。新規アップロード動画は自動的に保護されますが、
+          設定前にアップロードされた動画はこちらで一括保護してください。
+        </p>
+        <ProtectAllVideosButton />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
