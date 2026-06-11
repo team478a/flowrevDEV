@@ -7,10 +7,12 @@ import {
   markLogFailed,
 } from "@/lib/repositories/scenario-execution";
 import { sendScenarioStepEmail } from "@/lib/email/send-scenario-step";
+import { getLineSettingsResolved } from "@/lib/repositories/line-settings";
+import { sendLinePushMessage } from "@/lib/line/client";
 
 /**
  * POST /api/admin/scenarios/execute[?force=true]
- * シナリオの pending ログを処理してメールを送信する。
+ * シナリオの pending ログを処理してメール or LINE を送信する。
  * force=true のとき delay_days を無視して即時実行（テスト用）。
  * 認証済みユーザーのみ実行可能。
  */
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
     try {
       const { data: customer } = await admin
         .from("customers")
-        .select("email, name")
+        .select("email, name, line_user_id, client_id")
         .eq("id", log.customerId)
         .maybeSingle();
 
@@ -65,12 +67,30 @@ export async function POST(req: NextRequest) {
       }
 
       const c = customer as Record<string, unknown>;
-      await sendScenarioStepEmail({
-        toEmail: c.email as string,
-        subject: log.subject,
-        body: log.body,
-        whiteLabelId: log.whiteLabelId,
-      });
+
+      if (log.channel === "line") {
+        const lineUserId = (c.line_user_id as string) ?? null;
+        if (!lineUserId) {
+          await markLogFailed(log.logId, "顧客の LINE ユーザー ID が設定されていません。");
+          failed++;
+          continue;
+        }
+        const clientId = c.client_id as string;
+        const lineSettings = await getLineSettingsResolved(clientId).catch(() => null);
+        if (!lineSettings?.channelAccessToken) {
+          await markLogFailed(log.logId, "LINE チャネルアクセストークンが設定されていません。");
+          failed++;
+          continue;
+        }
+        await sendLinePushMessage(lineSettings.channelAccessToken, lineUserId, log.body);
+      } else {
+        await sendScenarioStepEmail({
+          toEmail: c.email as string,
+          subject: log.subject,
+          body: log.body,
+          whiteLabelId: log.whiteLabelId,
+        });
+      }
 
       await markLogSent(log.logId);
       sent++;

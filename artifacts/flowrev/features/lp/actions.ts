@@ -93,12 +93,15 @@ export async function updateLpAction(
     };
   }
 
+  const lineAddUrl = ((formData.get("lineAddUrl") as string | null) ?? "").trim() || null;
+
   try {
     await updateLandingPage(id, {
       title: parsed.data.title,
       slug: parsed.data.slug,
       productId: parsed.data.productId ?? null,
       htmlContent: parsed.data.htmlContent,
+      lineAddUrl,
       status: parsed.data.status,
     });
   } catch (e) {

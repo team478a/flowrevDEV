@@ -45,12 +45,14 @@ export interface CreateStepInput {
   scenarioId: string;
   whiteLabelId: string;
   delayDays: number;
+  channel?: string;
   subject?: string;
   body: string;
 }
 
 export interface UpdateStepInput {
   delayDays?: number;
+  channel?: string;
   subject?: string;
   body?: string;
 }
@@ -223,6 +225,7 @@ export async function addStep(input: CreateStepInput): Promise<StepRow> {
       white_label_id: input.whiteLabelId,
       step_number: nextNumber,
       delay_days: input.delayDays,
+      channel: input.channel ?? "email",
       subject: input.subject ?? null,
       body: input.body,
     })
@@ -246,6 +249,7 @@ export async function updateStep(
     .from("scenario_steps")
     .update({
       ...(input.delayDays !== undefined && { delay_days: input.delayDays }),
+      ...(input.channel !== undefined && { channel: input.channel }),
       ...(input.subject !== undefined && { subject: input.subject }),
       ...(input.body !== undefined && { body: input.body }),
     })

@@ -92,6 +92,21 @@ export default async function SettingsPage() {
         </Section>
       )}
 
+      {/* LINE 設定（client_owner のみ表示） */}
+      {session?.role === "client_owner" && (
+        <Section
+          title="LINE 設定"
+          description="シナリオで LINE メッセージを自動送信するための設定です。"
+        >
+          <Link
+            href="/settings/line"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+          >
+            LINE 設定を開く →
+          </Link>
+        </Section>
+      )}
+
       {/* ログアウト */}
       <Section title="ログアウト">
         <div className="flex flex-col gap-3">

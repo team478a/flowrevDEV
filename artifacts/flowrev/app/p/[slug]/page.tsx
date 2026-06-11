@@ -16,6 +16,11 @@ interface ProductInfo {
   priceType: string;
 }
 
+interface LpMeta {
+  product: ProductInfo | null;
+  lineAddUrl: string | null;
+}
+
 /** 閲覧数をインクリメント（fire-and-forget） */
 async function incrementViews(lpId: string) {
   try {
@@ -35,18 +40,21 @@ async function incrementViews(lpId: string) {
   }
 }
 
-/** LP に紐付く商品情報を取得（有料の場合のみ） */
-async function getProductForLp(lpId: string): Promise<ProductInfo | null> {
+/** LP に紐付く商品情報と LINE URL を取得する */
+async function getLpMeta(lpId: string): Promise<LpMeta> {
   try {
     const admin = createAdminClient();
     const { data: lpRow } = await admin
       .from("landing_pages")
-      .select("product_id")
+      .select("product_id, line_add_url")
       .eq("id", lpId)
       .maybeSingle();
 
-    const productId = (lpRow as Record<string, unknown> | null)?.product_id as string | null;
-    if (!productId) return null;
+    const row = lpRow as Record<string, unknown> | null;
+    const lineAddUrl = (row?.line_add_url as string) ?? null;
+    const productId = (row?.product_id as string) ?? null;
+
+    if (!productId) return { product: null, lineAddUrl };
 
     const { data: productRow } = await admin
       .from("products")
@@ -54,20 +62,19 @@ async function getProductForLp(lpId: string): Promise<ProductInfo | null> {
       .eq("id", productId)
       .maybeSingle();
 
-    if (!productRow) return null;
+    if (!productRow) return { product: null, lineAddUrl };
     const p = productRow as Record<string, unknown>;
     const price = (p.price as number) ?? 0;
     const priceType = (p.price_type as string) ?? "free";
 
-    if (price <= 0 || priceType === "free") return null;
+    if (price <= 0 || priceType === "free") return { product: null, lineAddUrl };
 
     return {
-      name: (p.name as string) ?? "",
-      price,
-      priceType,
+      product: { name: (p.name as string) ?? "", price, priceType },
+      lineAddUrl,
     };
   } catch {
-    return null;
+    return { product: null, lineAddUrl: null };
   }
 }
 
@@ -82,8 +89,8 @@ export default async function PublicLpPage({ params }: Props) {
 
   if (!lp) notFound();
 
-  const [product] = await Promise.all([
-    getProductForLp(lp.id),
+  const [{ product, lineAddUrl }] = await Promise.all([
+    getLpMeta(lp.id),
     incrementViews(lp.id),
   ]);
 
@@ -103,6 +110,23 @@ export default async function PublicLpPage({ params }: Props) {
           <div className="text-center py-20 text-gray-400 mb-16">
             <p className="text-lg font-semibold text-gray-700">{lp.title}</p>
             <p className="text-sm mt-2">コンテンツが設定されていません</p>
+          </div>
+        )}
+
+        {/* LINE 友だち追加ボタン */}
+        {lineAddUrl && (
+          <div className="mb-8 flex justify-center">
+            <a
+              href={lineAddUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 rounded-full bg-[#06C755] px-8 py-3.5 text-white font-bold text-base shadow-md hover:bg-[#05b04c] transition-colors"
+            >
+              <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current" aria-hidden="true">
+                <path d="M12 2C6.48 2 2 5.92 2 10.72c0 3.21 1.77 6.04 4.47 7.74-.09.52-.56 2.93-.59 3.1 0 0-.01.11.06.16.07.04.15.02.15.02.19-.03 2.2-1.45 3.09-2.04.71.1 1.44.16 2.2.16C17.52 19.86 22 15.93 22 10.72S17.52 2 12 2z"/>
+              </svg>
+              LINE を友だち追加する
+            </a>
           </div>
         )}
 

@@ -7,13 +7,14 @@ import { AiGenerateButton } from "@/features/ai/components/ai-generate-button";
 
 export interface StepFormData {
   delayDays: string;
+  channel: string;
   subject: string;
   body: string;
   scenarioName?: string;
 }
 
 export function emptyStepForm(): StepFormData {
-  return { delayDays: "0", subject: "", body: "" };
+  return { delayDays: "0", channel: "email", subject: "", body: "" };
 }
 
 interface StepFormFieldsProps {
@@ -22,6 +23,8 @@ interface StepFormFieldsProps {
 }
 
 export function StepFormFields({ values, onChange }: StepFormFieldsProps) {
+  const isLine = values.channel === "line";
+
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-4">
@@ -37,6 +40,28 @@ export function StepFormFields({ values, onChange }: StepFormFieldsProps) {
           />
         </div>
         <div className="flex flex-col gap-1.5">
+          <Label>チャネル *</Label>
+          <div className="flex gap-2">
+            {(["email", "line"] as const).map((ch) => (
+              <button
+                key={ch}
+                type="button"
+                onClick={() => onChange("channel", ch)}
+                className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  values.channel === ch
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background hover:bg-accent"
+                }`}
+              >
+                {ch === "email" ? "📧 メール" : "💬 LINE"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {!isLine && (
+        <div className="flex flex-col gap-1.5">
           <Label>件名</Label>
           <Input
             value={values.subject}
@@ -44,7 +69,8 @@ export function StepFormFields({ values, onChange }: StepFormFieldsProps) {
             placeholder="例：購入ありがとうございます"
           />
         </div>
-      </div>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <Label>本文 *</Label>
@@ -61,8 +87,13 @@ export function StepFormFields({ values, onChange }: StepFormFieldsProps) {
           value={values.body}
           onChange={(e) => onChange("body", e.target.value)}
           rows={5}
-          placeholder="メール本文を入力してください"
+          placeholder={isLine ? "LINE メッセージ本文を入力してください" : "メール本文を入力してください"}
         />
+        {isLine && (
+          <p className="text-xs text-muted-foreground">
+            💡 LINE はテキストのみ。顧客詳細画面で LINE ユーザー ID が設定されている顧客にのみ送信されます。
+          </p>
+        )}
       </div>
     </div>
   );

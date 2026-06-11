@@ -6,6 +6,7 @@ export interface LandingPageRow {
   slug: string;
   htmlContent: string | null;
   productId: string | null;
+  lineAddUrl: string | null;
   status: string;
   views: number;
   conversions: number;
@@ -31,6 +32,7 @@ export interface UpdateLandingPageInput {
   slug?: string;
   htmlContent?: string;
   productId?: string | null;
+  lineAddUrl?: string | null;
   status?: string;
 }
 
@@ -41,6 +43,7 @@ function mapRow(r: Record<string, unknown>): LandingPageRow {
     slug: r.slug as string,
     htmlContent: (r.html_content as string) ?? null,
     productId: (r.product_id as string) ?? null,
+    lineAddUrl: (r.line_add_url as string) ?? null,
     status: r.status as string,
     views: (r.views as number) ?? 0,
     conversions: (r.conversions as number) ?? 0,
@@ -53,7 +56,7 @@ function mapRow(r: Record<string, unknown>): LandingPageRow {
 }
 
 const SELECT_COLS =
-  "id, title, slug, html_content, product_id, status, views, conversions, ai_generated, client_id, white_label_id, created_at, updated_at";
+  "id, title, slug, html_content, product_id, line_add_url, status, views, conversions, ai_generated, client_id, white_label_id, created_at, updated_at";
 
 /** LP一覧を取得する（新しい順）。RLS で自テナントのみ。 */
 export async function listLandingPages(): Promise<LandingPageRow[]> {
@@ -153,6 +156,7 @@ export async function updateLandingPage(
   if (input.slug !== undefined) patch.slug = input.slug;
   if (input.htmlContent !== undefined) patch.html_content = input.htmlContent;
   if ("productId" in input) patch.product_id = input.productId ?? null;
+  if ("lineAddUrl" in input) patch.line_add_url = input.lineAddUrl ?? null;
   if (input.status !== undefined) patch.status = input.status;
 
   const { data, error } = await supabase

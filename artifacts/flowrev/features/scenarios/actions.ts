@@ -120,6 +120,7 @@ export async function addStepAction(
   if (!session.whiteLabelId)
     return { error: "クライアント情報が取得できませんでした。" };
 
+  const channel = ((formData.get("channel") as string | null) ?? "email").trim() || "email";
   const parsed = stepSchema.safeParse({
     delayDays: formData.get("delayDays"),
     subject: formData.get("subject") || undefined,
@@ -135,6 +136,7 @@ export async function addStepAction(
       scenarioId,
       whiteLabelId: session.whiteLabelId,
       delayDays: parsed.data.delayDays,
+      channel,
       subject: parsed.data.subject,
       body: parsed.data.body,
     });
@@ -157,6 +159,7 @@ export async function updateStepAction(
   if (session?.role !== "client_owner")
     return { error: "この操作を行う権限がありません。" };
 
+  const channel = ((formData.get("channel") as string | null) ?? "email").trim() || "email";
   const parsed = stepSchema.safeParse({
     delayDays: formData.get("delayDays"),
     subject: formData.get("subject") || undefined,
@@ -170,6 +173,7 @@ export async function updateStepAction(
   try {
     await updateStep(stepId, {
       delayDays: parsed.data.delayDays,
+      channel,
       subject: parsed.data.subject,
       body: parsed.data.body,
     });

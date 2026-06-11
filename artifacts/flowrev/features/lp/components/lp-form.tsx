@@ -129,6 +129,21 @@ export function LpForm({
         </div>
       </div>
 
+      {/* LINE 友だち追加 URL */}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="lineAddUrl">LINE 友だち追加 URL（任意）</Label>
+        <Input
+          id="lineAddUrl"
+          name="lineAddUrl"
+          type="url"
+          placeholder="https://lin.ee/xxxxxxxx"
+          defaultValue={defaultValues?.lineAddUrl ?? ""}
+        />
+        <p className="text-xs text-muted-foreground">
+          入力すると LP ページに「LINE を友だち追加する」ボタンが表示されます。
+        </p>
+      </div>
+
       {/* HTML本文 + プレビュー */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">

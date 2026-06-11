@@ -30,6 +30,7 @@ const INITIAL_STATE = { error: null as string | null };
 function stepToForm(step: StepRow): StepFormData {
   return {
     delayDays: String(step.delayDays),
+    channel: step.channel ?? "email",
     subject: step.subject ?? "",
     body: step.body,
   };
@@ -38,6 +39,7 @@ function stepToForm(step: StepRow): StepFormData {
 function buildFormData(values: StepFormData): FormData {
   const fd = new FormData();
   fd.set("delayDays", values.delayDays);
+  fd.set("channel", values.channel);
   fd.set("subject", values.subject);
   fd.set("body", values.body);
   return fd;
@@ -140,10 +142,17 @@ export function StepEditor({
           className="border rounded-lg p-4 bg-card flex flex-col gap-3"
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-muted-foreground">
+            <span className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               ステップ {step.stepNumber}　
               <span className="font-normal">
                 {step.delayDays === 0 ? "即時送信" : `${step.delayDays}日後`}
+              </span>
+              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                step.channel === "line"
+                  ? "bg-[#06C755]/10 text-[#06C755]"
+                  : "bg-blue-50 text-blue-600"
+              }`}>
+                {step.channel === "line" ? "💬 LINE" : "📧 メール"}
               </span>
             </span>
             {editingStepId !== step.id && (
