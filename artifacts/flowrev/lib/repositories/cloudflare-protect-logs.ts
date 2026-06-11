@@ -36,6 +36,30 @@ export async function getLatestProtectLog(): Promise<CloudflareProtectLog | null
   };
 }
 
+/** 直近の一括保護ログを最大 limit 件返す（新しい順） */
+export async function getRecentProtectLogs(
+  limit = 20,
+): Promise<CloudflareProtectLog[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("cloudflare_protect_logs")
+    .select("id, executed_at, executed_by, total, updated, failed")
+    .order("executed_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`保護ログの取得に失敗: ${error.message}`);
+  if (!data) return [];
+
+  return (data as Record<string, unknown>[]).map((row) => ({
+    id: row.id as string,
+    executedAt: row.executed_at as string,
+    executedBy: (row.executed_by as string) ?? null,
+    total: (row.total as number) ?? 0,
+    updated: (row.updated as number) ?? 0,
+    failed: (row.failed as number) ?? 0,
+  }));
+}
+
 /** 一括保護の実行結果をログに保存する */
 export async function insertProtectLog(params: {
   executedBy: string;

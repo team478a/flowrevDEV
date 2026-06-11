@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { Settings2 } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsMasked } from "@/lib/repositories/cloudflare-settings";
-import { getLatestProtectLog } from "@/lib/repositories/cloudflare-protect-logs";
+import {
+  getLatestProtectLog,
+  getRecentProtectLogs,
+} from "@/lib/repositories/cloudflare-protect-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
 import { Clock, ChevronDown, AlertTriangle } from "lucide-react";
 
@@ -28,9 +31,10 @@ export default async function VideoSettingsPage() {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
-  const [current, latestLog] = await Promise.all([
+  const [current, latestLog, recentLogs] = await Promise.all([
     getCloudflareSettingsMasked().catch(() => null),
     getLatestProtectLog().catch(() => null),
+    getRecentProtectLogs(20).catch(() => [] as Awaited<ReturnType<typeof getRecentProtectLogs>>),
   ]);
 
   const isConfigured =
@@ -147,6 +151,46 @@ export default async function VideoSettingsPage() {
 
         <ProtectAllVideosButton />
       </div>
+
+      {recentLogs.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-base font-semibold mb-4 pb-4 border-b border-border">
+            実行履歴（直近 {recentLogs.length} 件）
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="pb-2 pr-4 font-medium">日時（JST）</th>
+                  <th className="pb-2 pr-4 font-medium text-right">対象</th>
+                  <th className="pb-2 pr-4 font-medium text-right">更新</th>
+                  <th className="pb-2 font-medium text-right">失敗</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {recentLogs.map((log) => {
+                  const hasFailed = log.failed > 0;
+                  return (
+                    <tr
+                      key={log.id}
+                      className={hasFailed ? "text-red-600" : "text-foreground"}
+                    >
+                      <td className="py-2 pr-4 font-mono whitespace-nowrap">
+                        {formatJst(log.executedAt)}
+                      </td>
+                      <td className="py-2 pr-4 text-right">{log.total}</td>
+                      <td className="py-2 pr-4 text-right">{log.updated}</td>
+                      <td className="py-2 text-right font-medium">
+                        {hasFailed ? log.failed : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold mb-4 pb-4 border-b border-border">設定手順</h2>
