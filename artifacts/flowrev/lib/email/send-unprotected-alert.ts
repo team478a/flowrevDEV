@@ -1,6 +1,9 @@
 import "server-only";
 import { Resend } from "resend";
 import { getActiveEmailSetting } from "@/lib/repositories/email-settings";
+import type { UnprotectedVideoItem } from "@/lib/cloudflare/stream";
+
+const MAX_LIST_DISPLAY = 10;
 
 function escapeHtml(s: string): string {
   return s
@@ -14,6 +17,7 @@ export interface SendUnprotectedAlertInput {
   unprotectedCount: number;
   totalCount: number;
   checkedAt: string;
+  videos: UnprotectedVideoItem[];
 }
 
 /**
@@ -60,6 +64,19 @@ export async function sendUnprotectedAlert(
   }
 }
 
+function buildVideoListText(videos: UnprotectedVideoItem[]): string {
+  if (videos.length === 0) return "";
+  const shown = videos.slice(0, MAX_LIST_DISPLAY);
+  const remaining = videos.length - shown.length;
+  const lines = shown.map(
+    (v, i) => `  ${i + 1}. ${v.title}（ID: ${v.id}）`,
+  );
+  if (remaining > 0) {
+    lines.push(`  … 他 ${remaining} 件`);
+  }
+  return ["", "【未保護動画一覧】", ...lines].join("\n");
+}
+
 function buildAlertText(input: SendUnprotectedAlertInput): string {
   return [
     "FlowRev 自動チェック通知",
@@ -67,12 +84,66 @@ function buildAlertText(input: SendUnprotectedAlertInput): string {
     `チェック日時: ${input.checkedAt}`,
     `総動画数: ${input.totalCount} 件`,
     `未保護動画数: ${input.unprotectedCount} 件`,
+    buildVideoListText(input.videos),
     "",
     "requireSignedURLs が false の動画が検出されました。",
     "管理画面（動画設定 → 一括保護）から保護処理を実行してください。",
     "",
     "このメールは FlowRev のスケジュールバッチが自動送信しています。",
-  ].join("\n");
+  ]
+    .filter((line) => line !== undefined)
+    .join("\n");
+}
+
+function buildVideoListHtml(videos: UnprotectedVideoItem[]): string {
+  if (videos.length === 0) return "";
+  const shown = videos.slice(0, MAX_LIST_DISPLAY);
+  const remaining = videos.length - shown.length;
+
+  const rows = shown
+    .map(
+      (v, i) => `
+              <tr style="border-bottom:1px solid #f4f4f5;">
+                <td style="padding:8px 12px;font-size:12px;color:#71717a;white-space:nowrap;">
+                  ${i + 1}
+                </td>
+                <td style="padding:8px 12px;font-size:13px;color:#18181b;">
+                  ${escapeHtml(v.title)}
+                </td>
+                <td style="padding:8px 12px;font-size:11px;color:#a1a1aa;font-family:monospace;white-space:nowrap;">
+                  ${escapeHtml(v.id)}
+                </td>
+              </tr>`,
+    )
+    .join("");
+
+  const remainingRow =
+    remaining > 0
+      ? `<tr>
+                <td colspan="3" style="padding:8px 12px;font-size:12px;color:#71717a;text-align:center;">
+                  … 他 ${remaining} 件
+                </td>
+              </tr>`
+      : "";
+
+  return `
+            <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#3f3f46;">
+              未保護動画一覧
+            </p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+              style="border:1px solid #e4e4e7;border-radius:8px;margin-bottom:20px;overflow:hidden;">
+              <thead>
+                <tr style="background:#f4f4f5;">
+                  <th style="padding:8px 12px;font-size:11px;color:#71717a;text-align:left;font-weight:600;">#</th>
+                  <th style="padding:8px 12px;font-size:11px;color:#71717a;text-align:left;font-weight:600;">タイトル</th>
+                  <th style="padding:8px 12px;font-size:11px;color:#71717a;text-align:left;font-weight:600;">動画 ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+                ${remainingRow}
+              </tbody>
+            </table>`;
 }
 
 function buildAlertHtml(input: SendUnprotectedAlertInput): string {
@@ -81,7 +152,7 @@ function buildAlertHtml(input: SendUnprotectedAlertInput): string {
 <body style="margin:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#18181b;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
     <tr><td align="center">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0"
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0"
         style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
         <tr>
           <td style="background:#dc2626;padding:16px 32px;">
@@ -116,6 +187,7 @@ function buildAlertHtml(input: SendUnprotectedAlertInput): string {
                 </td>
               </tr>
             </table>
+            ${buildVideoListHtml(input.videos)}
             <p style="margin:0 0 20px;font-size:14px;line-height:1.7;color:#3f3f46;">
               <code style="font-family:monospace;background:#f4f4f5;padding:2px 6px;border-radius:4px;">requireSignedURLs</code>
               が無効の動画が残っています。<br>

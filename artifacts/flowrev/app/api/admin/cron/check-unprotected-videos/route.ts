@@ -52,7 +52,7 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let countResult: { unprotected: number; total: number };
+  let countResult: { unprotected: number; total: number; videos: { id: string; title: string }[] };
   try {
     countResult = await countUnprotectedVideos(
       settings.accountId,
@@ -119,6 +119,7 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
       unprotectedCount: countResult.unprotected,
       totalCount: countResult.total,
       checkedAt,
+      videos: countResult.videos,
     });
   } catch (e) {
     await updateCronTimestamps({

@@ -9,9 +9,15 @@ export interface ProtectAllVideosResult {
   errors: string[];
 }
 
+export interface UnprotectedVideoItem {
+  id: string;
+  title: string;
+}
+
 export interface UnprotectedCountResult {
   unprotected: number;
   total: number;
+  videos: UnprotectedVideoItem[];
 }
 
 /**
@@ -22,8 +28,8 @@ export async function countUnprotectedVideos(
   accountId: string,
   apiToken: string,
 ): Promise<UnprotectedCountResult> {
-  let unprotected = 0;
   let total = 0;
+  const videos: UnprotectedVideoItem[] = [];
   let cursor: string | null = null;
 
   while (true) {
@@ -46,22 +52,31 @@ export async function countUnprotectedVideos(
     }
 
     const json = (await listRes.json()) as {
-      result?: Array<{ uid?: string; requireSignedURLs?: boolean }>;
+      result?: Array<{
+        uid?: string;
+        requireSignedURLs?: boolean;
+        meta?: { name?: string };
+      }>;
       result_info?: { next_cursor?: string };
     };
 
-    const videos = json.result ?? [];
-    for (const v of videos) {
+    const page = json.result ?? [];
+    for (const v of page) {
       total++;
-      if (!v.requireSignedURLs) unprotected++;
+      if (!v.requireSignedURLs) {
+        videos.push({
+          id: v.uid ?? "(不明)",
+          title: v.meta?.name?.trim() || "(タイトルなし)",
+        });
+      }
     }
 
     const nextCursor = json.result_info?.next_cursor;
-    if (!nextCursor || videos.length === 0) break;
+    if (!nextCursor || page.length === 0) break;
     cursor = nextCursor;
   }
 
-  return { unprotected, total };
+  return { unprotected: videos.length, total, videos };
 }
 
 /**
