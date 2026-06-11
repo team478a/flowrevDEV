@@ -298,6 +298,47 @@ export default async function VideoSettingsPage({
           定期チェックで未保護動画が検出された場合の通知先を設定します。
           未設定の場合は system_admin のメールアドレスに送信されます。
         </p>
+
+        {current?.lastCheckedAt && (
+          <div className="mb-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                最終チェック:{" "}
+                <span className="font-medium text-foreground">
+                  {formatJst(current.lastCheckedAt)}
+                </span>
+                {"（"}
+                {current.lastUnprotectedCount != null ? (
+                  current.lastUnprotectedCount > 0 ? (
+                    <span className="font-medium text-amber-600">
+                      未保護 {current.lastUnprotectedCount} 件検出
+                    </span>
+                  ) : (
+                    <span className="font-medium text-green-600">
+                      未保護動画なし
+                    </span>
+                  )
+                ) : (
+                  <span>件数不明</span>
+                )}
+                {"）"}
+              </span>
+            </div>
+            {current.lastAlertedAt && (
+              <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  最終通知:{" "}
+                  <span className="font-medium">
+                    {formatJst(current.lastAlertedAt)}
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <AlertEmailsForm
           currentEmails={current?.alertEmails ?? null}
           action={saveAlertEmailsAction}

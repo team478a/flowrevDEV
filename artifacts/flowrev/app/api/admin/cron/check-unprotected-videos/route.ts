@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
+import {
+  getCloudflareSettingsResolved,
+  updateCronTimestamps,
+} from "@/lib/repositories/cloudflare-settings";
 import { countUnprotectedVideos } from "@/lib/cloudflare/stream";
 import { sendUnprotectedAlert } from "@/lib/email/send-unprotected-alert";
 
@@ -65,7 +68,13 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const nowIso = new Date().toISOString();
+
   if (countResult.unprotected === 0) {
+    await updateCronTimestamps({
+      lastCheckedAt: nowIso,
+      lastUnprotectedCount: 0,
+    }).catch(() => {});
     return NextResponse.json({
       ok: true,
       unprotected: 0,
@@ -78,6 +87,10 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
   const toEmails = await resolveAlertEmails(settings.alertEmails ?? null);
 
   if (toEmails.length === 0) {
+    await updateCronTimestamps({
+      lastCheckedAt: nowIso,
+      lastUnprotectedCount: countResult.unprotected,
+    }).catch(() => {});
     return NextResponse.json(
       {
         ok: false,
@@ -108,6 +121,10 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
       checkedAt,
     });
   } catch (e) {
+    await updateCronTimestamps({
+      lastCheckedAt: nowIso,
+      lastUnprotectedCount: countResult.unprotected,
+    }).catch(() => {});
     return NextResponse.json(
       {
         ok: false,
@@ -119,6 +136,12 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   }
+
+  await updateCronTimestamps({
+    lastCheckedAt: nowIso,
+    lastAlertedAt: nowIso,
+    lastUnprotectedCount: countResult.unprotected,
+  }).catch(() => {});
 
   return NextResponse.json({
     ok: true,

@@ -7,6 +7,9 @@ export interface CloudflareSettingsMasked {
   hasApiToken: boolean;
   hasWebhookSecret: boolean;
   alertEmails: string | null;
+  lastCheckedAt: string | null;
+  lastAlertedAt: string | null;
+  lastUnprotectedCount: number | null;
 }
 
 export interface CloudflareSettingsResolved {
@@ -28,7 +31,9 @@ export async function getCloudflareSettingsMasked(): Promise<CloudflareSettingsM
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cloudflare_settings")
-    .select("account_id, api_token_enc, webhook_secret_enc, alert_emails")
+    .select(
+      "account_id, api_token_enc, webhook_secret_enc, alert_emails, last_checked_at, last_alerted_at, last_unprotected_count",
+    )
     .limit(1)
     .maybeSingle();
 
@@ -41,6 +46,12 @@ export async function getCloudflareSettingsMasked(): Promise<CloudflareSettingsM
     hasApiToken: !!(row.api_token_enc as string),
     hasWebhookSecret: !!(row.webhook_secret_enc as string),
     alertEmails: (row.alert_emails as string) ?? null,
+    lastCheckedAt: (row.last_checked_at as string) ?? null,
+    lastAlertedAt: (row.last_alerted_at as string) ?? null,
+    lastUnprotectedCount:
+      row.last_unprotected_count != null
+        ? (row.last_unprotected_count as number)
+        : null,
   };
 }
 
@@ -88,6 +99,49 @@ export async function getCloudflareWebhookSecret(): Promise<string | null> {
   if (!row.webhook_secret_enc) return null;
 
   return decrypt(row.webhook_secret_enc as string);
+}
+
+export interface UpdateCronTimestampsInput {
+  lastCheckedAt: string;
+  lastAlertedAt?: string;
+  lastUnprotectedCount: number;
+}
+
+/**
+ * cron 実行後に last_checked_at / last_alerted_at / last_unprotected_count を更新する。
+ * cloudflare_settings 行が存在する場合のみ更新（存在しない場合はスキップ）。
+ */
+export async function updateCronTimestamps(
+  input: UpdateCronTimestampsInput,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("cloudflare_settings")
+    .select("id")
+    .limit(1)
+    .maybeSingle();
+
+  if (!existing) return;
+
+  const existingRow = existing as Record<string, unknown>;
+  const payload: Record<string, unknown> = {
+    last_checked_at: input.lastCheckedAt,
+    last_unprotected_count: input.lastUnprotectedCount,
+    updated_at: new Date().toISOString(),
+  };
+  if (input.lastAlertedAt !== undefined) {
+    payload.last_alerted_at = input.lastAlertedAt;
+  }
+
+  const { error } = await admin
+    .from("cloudflare_settings")
+    .update(payload)
+    .eq("id", existingRow.id as string);
+
+  if (error) {
+    console.error(`[Cron] タイムスタンプ更新エラー: ${error.message}`);
+  }
 }
 
 /** Cloudflare 設定を upsert する（最大 1 行） */

@@ -27,6 +27,7 @@ When the user confirms it has been executed (and it is verified against the live
 - ⏳ `add_cloudflare_protect_logs.sql` — 動画一括保護ログ。`cloudflare_protect_logs` テーブル作成＋RLS ポリシー。動画保護ログ機能を使う前に SQL Editor で実行が必要。
 - ⏳ `add_cloudflare_webhook_logs.sql` — Webhook 受信ログ。`cloudflare_webhook_logs` テーブル作成＋RLS ポリシー /admin/settings/cloudflare のログ表示を有効化する前に SQL Editor で実行が必要。
 - ⏳ `add_error_details_to_protect_logs.sql` — cloudflare_protect_logs テーブルに `error_details jsonb` カラムを追加。**`add_cloudflare_protect_logs.sql` 適用後に実行すること。** 失敗した動画 ID の管理画面表示機能を使う前に SQL Editor で実行が必要。
+- ⏳ `add_cron_timestamps_to_cloudflare_settings.sql` — `cloudflare_settings` テーブルに `last_checked_at timestamptz`・`last_alerted_at timestamptz`・`last_unprotected_count integer` カラムを追加。未実行だとcronタイムスタンプが記録されない（画面には「最終チェック」が表示されないだけでエラーにはならない）。
 
 ## How to verify against live DB（service_role キー使用）
 
