@@ -82,6 +82,26 @@ export async function getVideoCheckLogsForChart(
   });
 }
 
+/** 最新のチェックログを1件返す（admin dashboard の表示用キャッシュ） */
+export async function getLatestVideoCheckLog(): Promise<VideoCheckLog | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("video_check_logs")
+    .select("id, checked_at, unprotected, total, notified")
+    .order("checked_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as Record<string, unknown>;
+  return {
+    id: row.id as string,
+    checkedAt: row.checked_at as string,
+    unprotected: (row.unprotected as number) ?? 0,
+    total: (row.total as number) ?? 0,
+    notified: (row.notified as boolean) ?? false,
+  };
+}
+
 /** ページネーション付きでチェックログを返す（新しい順） */
 export async function getVideoCheckLogsPage(
   page = 1,

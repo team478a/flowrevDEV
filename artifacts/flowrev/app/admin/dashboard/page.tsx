@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSessionProfile } from "@/features/auth/session";
-import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
-import { countUnprotectedVideos } from "@/lib/cloudflare/stream";
+import { getCloudflareSettingsMasked } from "@/lib/repositories/cloudflare-settings";
+import { getLatestVideoCheckLog } from "@/lib/repositories/video-check-logs";
 import { VideoProtectionCard } from "@/features/dashboard/components/video-protection-card";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CustomerTrendChart } from "@/features/dashboard/components/customer-trend-chart";
@@ -48,15 +48,14 @@ async function fetchPlanCount(): Promise<number> {
   }
 }
 
+/** Cloudflare 外部 API を叩かず、DB キャッシュ（video_check_logs）から取得する */
 async function fetchVideoProtectionState(): Promise<VideoProtectionState> {
   try {
-    const settings = await getCloudflareSettingsResolved();
-    if (!settings) return { kind: "unconfigured" };
-    const result = await countUnprotectedVideos(
-      settings.accountId,
-      settings.apiToken,
-    );
-    return { kind: "ok", unprotected: result.unprotected, total: result.total };
+    const settings = await getCloudflareSettingsMasked();
+    if (!settings?.accountId || !settings?.hasApiToken) return { kind: "unconfigured" };
+    const latestLog = await getLatestVideoCheckLog();
+    if (!latestLog) return { kind: "ok", unprotected: 0, total: 0 };
+    return { kind: "ok", unprotected: latestLog.unprotected, total: latestLog.total };
   } catch {
     return { kind: "error" };
   }
