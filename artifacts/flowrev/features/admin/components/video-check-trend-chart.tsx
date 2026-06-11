@@ -38,8 +38,8 @@ function UnprotectedDot({ cx, cy, value }: DotProps) {
 }
 
 interface LegendPayloadItem {
-  value: string;
-  color: string;
+  value?: string;
+  color?: string;
   type?: string;
 }
 
@@ -51,10 +51,10 @@ interface CustomLegendProps {
 function CustomLegend({ payload, hasUnprotected }: CustomLegendProps) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px]">
-      {payload?.map((entry) => (
-        <span key={entry.value} className="flex items-center gap-1">
+      {payload?.map((entry, i) => (
+        <span key={i} className="flex items-center gap-1">
           <svg width="8" height="8" viewBox="0 0 8 8">
-            <circle cx="4" cy="4" r="4" fill={entry.color} />
+            <circle cx="4" cy="4" r="4" fill={entry.color ?? "#888"} />
           </svg>
           <span style={{ color: "hsl(var(--foreground))" }}>{entry.value}</span>
         </span>
@@ -116,9 +116,9 @@ export function VideoCheckTrendChart({ data }: Props) {
           />
           <Legend
             wrapperStyle={{ fontSize: 11 }}
-            content={(props: { payload?: LegendPayloadItem[] }) => (
+            content={(props) => (
               <CustomLegend
-                payload={props.payload}
+                payload={props.payload as LegendPayloadItem[] | undefined}
                 hasUnprotected={hasUnprotected}
               />
             )}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Sparkles, Eye, Loader2, ChevronLeft } from "lucide-react";
+import { Sparkles, Eye, Loader2, ChevronLeft, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,18 +57,21 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
 
   const [purpose, setPurpose] = useState("");
   const [target, setTarget] = useState("");
+  const [referenceUrl, setReferenceUrl] = useState("");
   const [productId, setProductId] = useState("none");
   const [generatedHtml, setGeneratedHtml] = useState("");
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [referenceWarning, setReferenceWarning] = useState<string | null>(null);
   const [generated, setGenerated] = useState(false);
 
   async function handleGenerate() {
     if (!purpose.trim()) return;
     setIsGenerating(true);
     setGenerateError(null);
+    setReferenceWarning(null);
 
     const selectedProduct = products.find((p) => p.id === productId);
     try {
@@ -78,13 +81,19 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
         body: JSON.stringify({
           title: `${purpose}${target ? `（ターゲット：${target}）` : ""}`,
           productName: selectedProduct?.name ?? "",
+          referenceUrl: referenceUrl.trim() || undefined,
         }),
       });
-      const data = (await res.json()) as { text?: string; error?: string };
+      const data = (await res.json()) as {
+        text?: string;
+        error?: string;
+        referenceWarning?: string;
+      };
       if (!res.ok || data.error) {
         setGenerateError(data.error ?? "生成に失敗しました。");
         return;
       }
+      if (data.referenceWarning) setReferenceWarning(data.referenceWarning);
       if (data.text) {
         setGeneratedHtml(data.text);
         if (!title) setTitle(purpose.slice(0, 50));
@@ -131,6 +140,23 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
         </div>
 
         <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ez-ref-url" className="flex items-center gap-1.5">
+            <Link2 className="h-3.5 w-3.5" />
+            参考サイト URL（任意）
+          </Label>
+          <Input
+            id="ez-ref-url"
+            type="url"
+            placeholder="https://example.com/lp"
+            value={referenceUrl}
+            onChange={(e) => setReferenceUrl(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            競合・参考サイトの URL を入力すると、そのライティングスタイル・構成を参考に LP を生成します。
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="ez-product">紐付ける商品（任意）</Label>
           <Select value={productId} onValueChange={setProductId}>
             <SelectTrigger id="ez-product">
@@ -144,6 +170,12 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
             </SelectContent>
           </Select>
         </div>
+
+        {referenceWarning && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            ⚠ {referenceWarning}
+          </p>
+        )}
 
         {generateError && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">

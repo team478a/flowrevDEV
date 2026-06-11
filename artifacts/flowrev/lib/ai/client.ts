@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getActiveAiSetting } from "@/lib/repositories/ai-settings";
 
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 1024;
+const MAX_TOKENS = 2048;
 
 /**
  * DB に保存された API キーを使って Anthropic でテキストを生成する。
@@ -43,11 +43,19 @@ export function buildProductPrompt(name: string, category: string): string {
 }
 
 /** LP 本文（HTML）を生成するプロンプトを構築する。 */
-export function buildLpPrompt(title: string, productName: string): string {
+export function buildLpPrompt(
+  title: string,
+  productName: string,
+  referenceContent?: string,
+): string {
+  const referenceSection = referenceContent
+    ? `\n## 参考サイトの文章（ライティングスタイルと構成のみ参考にすること）\n${referenceContent}\n\n上記は参考情報です。文章をそのままコピーせず、ライティングのトーン・見出し構成・訴求の流れを参考に、下記の商品に合ったオリジナルの LP を作成してください。\n`
+    : "";
+
   return `以下のランディングページ用のHTML本文を生成してください。
 シンプルなHTMLタグ（h1, h2, p, ul, li, strong）のみを使ってください。
 日本語で記述し、見出し・本文・特典・CTA の構成にしてください。
-
+${referenceSection}
 ページタイトル: ${title}
 紐付け商品: ${productName || "未設定"}
 
