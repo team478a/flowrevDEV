@@ -6,8 +6,10 @@ import {
   getCloudflareSettingsMasked,
   upsertCloudflareSettings,
 } from "@/lib/repositories/cloudflare-settings";
+import { getLatestProtectLog } from "@/lib/repositories/cloudflare-protect-logs";
 import { CloudflareSettingsForm } from "@/features/admin/components/cloudflare-settings-form";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
+import { Clock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -39,11 +41,25 @@ async function saveVideoSettingAction(
   return { error: null, success: true };
 }
 
+function formatJst(isoString: string): string {
+  return new Date(isoString).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function VideoSettingsPage() {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
-  const current = await getCloudflareSettingsMasked().catch(() => null);
+  const [current, latestLog] = await Promise.all([
+    getCloudflareSettingsMasked().catch(() => null),
+    getLatestProtectLog().catch(() => null),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -72,6 +88,30 @@ export default async function VideoSettingsPage() {
           API 設定完了後、この機能が有効になります。新規アップロード動画は自動的に保護されますが、
           設定前にアップロードされた動画はこちらで一括保護してください。
         </p>
+
+        {latestLog && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground mb-4">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              最終実行:{" "}
+              <span className="font-medium text-foreground">
+                {formatJst(latestLog.executedAt)}
+              </span>
+              {" — "}
+              <span className="font-medium text-foreground">
+                {latestLog.updated} 件
+              </span>
+              更新
+              {latestLog.failed > 0 && (
+                <span className="text-red-600 ml-1">
+                  （{latestLog.failed} 件失敗）
+                </span>
+              )}
+              {" / "}対象 {latestLog.total} 件
+            </span>
+          </div>
+        )}
+
         <ProtectAllVideosButton />
       </div>
 

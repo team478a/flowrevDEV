@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
 import { protectAllVideos } from "@/lib/cloudflare/stream";
+import { insertProtectLog } from "@/lib/repositories/cloudflare-protect-logs";
 
 /**
  * POST /api/admin/video/protect-all
@@ -34,6 +35,15 @@ export async function POST() {
 
   try {
     const result = await protectAllVideos(settings.accountId, settings.apiToken);
+
+    await insertProtectLog({
+      executedBy: session.userId,
+      total: result.total,
+      updated: result.updated,
+      failed: result.failed,
+    }).catch(() => {
+    });
+
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(
