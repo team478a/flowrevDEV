@@ -1,20 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Settings2 } from "lucide-react";
+import { Settings2, Clock, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsMasked } from "@/lib/repositories/cloudflare-settings";
 import {
   getLatestProtectLog,
-  getRecentProtectLogs,
+  getProtectLogsPage,
 } from "@/lib/repositories/cloudflare-protect-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
-import { Clock, ChevronDown, AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "動画設定（Cloudflare Stream）| FlowRev",
 };
+
+const PAGE_SIZE = 20;
 
 function formatJst(isoString: string): string {
   return new Date(isoString).toLocaleString("ja-JP", {
@@ -27,18 +28,36 @@ function formatJst(isoString: string): string {
   });
 }
 
-export default async function VideoSettingsPage() {
+function buildPageUrl(page: number): string {
+  return `/admin/settings/video?page=${page}`;
+}
+
+export default async function VideoSettingsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
   const session = await getSessionProfile();
   if (!session || session.role !== "system_admin") redirect("/login");
 
-  const [current, latestLog, recentLogs] = await Promise.all([
+  const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+
+  const [current, latestLog, logsPage] = await Promise.all([
     getCloudflareSettingsMasked().catch(() => null),
     getLatestProtectLog().catch(() => null),
-    getRecentProtectLogs(20).catch(() => [] as Awaited<ReturnType<typeof getRecentProtectLogs>>),
+    getProtectLogsPage(currentPage, PAGE_SIZE).catch(() => ({
+      logs: [],
+      total: 0,
+      page: currentPage,
+      pageSize: PAGE_SIZE,
+    })),
   ]);
 
-  const isConfigured =
-    !!current?.accountId && !!current?.hasApiToken;
+  const isConfigured = !!current?.accountId && !!current?.hasApiToken;
+
+  const totalPages = Math.ceil(logsPage.total / PAGE_SIZE);
+  const rangeStart = logsPage.total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, logsPage.total);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -152,11 +171,14 @@ export default async function VideoSettingsPage() {
         <ProtectAllVideosButton />
       </div>
 
-      {recentLogs.length > 0 && (
+      {logsPage.total > 0 && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-base font-semibold mb-4 pb-4 border-b border-border">
-            実行履歴（直近 {recentLogs.length} 件）
-          </h2>
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+            <h2 className="text-base font-semibold text-foreground">実行履歴</h2>
+            <span className="text-xs text-muted-foreground">
+              {rangeStart}–{rangeEnd} / 全 {logsPage.total} 件
+            </span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -168,7 +190,7 @@ export default async function VideoSettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {recentLogs.map((log) => {
+                {logsPage.logs.map((log) => {
                   const hasFailed = log.failed > 0;
                   return (
                     <tr
@@ -189,6 +211,42 @@ export default async function VideoSettingsPage() {
               </tbody>
             </table>
           </div>
+
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between pt-4 border-t border-border">
+              <Link
+                href={buildPageUrl(currentPage - 1)}
+                aria-disabled={currentPage <= 1}
+                className={[
+                  "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                  currentPage <= 1
+                    ? "pointer-events-none border-border text-muted-foreground/40 bg-muted/30"
+                    : "border-border bg-background text-foreground hover:bg-muted",
+                ].join(" ")}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                前へ
+              </Link>
+
+              <span className="text-xs text-muted-foreground">
+                {currentPage} / {totalPages} ページ
+              </span>
+
+              <Link
+                href={buildPageUrl(currentPage + 1)}
+                aria-disabled={currentPage >= totalPages}
+                className={[
+                  "inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                  currentPage >= totalPages
+                    ? "pointer-events-none border-border text-muted-foreground/40 bg-muted/30"
+                    : "border-border bg-background text-foreground hover:bg-muted",
+                ].join(" ")}
+              >
+                次へ
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

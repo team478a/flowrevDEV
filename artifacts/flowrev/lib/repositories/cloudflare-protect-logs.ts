@@ -57,7 +57,46 @@ export async function getRecentProtectLogs(
     total: (row.total as number) ?? 0,
     updated: (row.updated as number) ?? 0,
     failed: (row.failed as number) ?? 0,
+    errorDetails: null,
   }));
+}
+
+export interface ProtectLogsPage {
+  logs: CloudflareProtectLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** ページネーション付きで一括保護ログを返す（新しい順） */
+export async function getProtectLogsPage(
+  page = 1,
+  pageSize = 20,
+): Promise<ProtectLogsPage> {
+  const admin = createAdminClient();
+  const offset = (page - 1) * pageSize;
+
+  const { data, error, count } = await admin
+    .from("cloudflare_protect_logs")
+    .select("id, executed_at, executed_by, total, updated, failed", {
+      count: "exact",
+    })
+    .order("executed_at", { ascending: false })
+    .range(offset, offset + pageSize - 1);
+
+  if (error) throw new Error(`保護ログの取得に失敗: ${error.message}`);
+
+  const logs = (data ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    executedAt: row.executed_at as string,
+    executedBy: (row.executed_by as string) ?? null,
+    total: (row.total as number) ?? 0,
+    updated: (row.updated as number) ?? 0,
+    failed: (row.failed as number) ?? 0,
+    errorDetails: null,
+  }));
+
+  return { logs, total: count ?? 0, page, pageSize };
 }
 
 /** 一括保護の実行結果をログに保存する */
