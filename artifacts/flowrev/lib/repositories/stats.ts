@@ -126,6 +126,62 @@ export async function getDashboardStats(
   };
 }
 
+export interface CustomerTrendPoint {
+  date: string;  // YYYY-MM-DD（集計・ソートキー）
+  label: string; // MM/DD（グラフ表示用）
+  count: number;
+}
+
+export interface GetCustomerTrendOptions {
+  whiteLabelId?: string | null;
+  from?: string;
+  to?: string;
+}
+
+/** ISO 文字列を JST の YYYY-MM-DD キーに変換する（年跨ぎ衝突を防ぐ） */
+function toJstDateKey(isoString: string): string {
+  const d = new Date(isoString);
+  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const y = jst.getUTCFullYear();
+  const m = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(jst.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export async function getCustomerRegistrationTrend(
+  options: GetCustomerTrendOptions = {},
+): Promise<CustomerTrendPoint[]> {
+  const supabase = createClient();
+  const { whiteLabelId, from, to } = options;
+
+  let q = supabase
+    .from("customers")
+    .select("created_at")
+    .order("created_at", { ascending: true });
+
+  if (whiteLabelId) q = q.eq("white_label_id", whiteLabelId);
+  if (from) q = q.gte("created_at", `${from}T00:00:00.000Z`);
+  if (to) q = q.lte("created_at", `${to}T23:59:59.999Z`);
+
+  const { data } = await q;
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const counts: Record<string, number> = {};
+
+  for (const row of rows) {
+    const key = toJstDateKey(row.created_at as string);
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+
+  // YYYY-MM-DD は辞書順＝日付順で正しくソートされる
+  return Object.entries(counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, count]) => ({
+      date,
+      label: date.slice(5).replace("-", "/"), // "MM/DD"
+      count,
+    }));
+}
+
 export async function getRecentCustomers(
   limit = 5,
   options: GetDashboardStatsOptions = {},

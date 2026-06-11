@@ -9,9 +9,18 @@ import {
   Zap,
 } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
-import { getDashboardStats, getRecentCustomers } from "@/lib/repositories/stats";
+import {
+  getDashboardStats,
+  getRecentCustomers,
+  getCustomerRegistrationTrend,
+} from "@/lib/repositories/stats";
 import { KpiCard } from "@/features/dashboard/components/kpi-card";
 import { RecentCustomers } from "@/features/dashboard/components/recent-customers";
+import { CustomerTrendChart } from "@/features/dashboard/components/customer-trend-chart";
+import {
+  ChartDateRangeSelector,
+  type ChartPreset,
+} from "@/features/admin/components/chart-date-range-selector";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +28,52 @@ export const metadata = {
   title: "ダッシュボード | FlowRev",
 };
 
-export default async function DashboardPage() {
+const VALID_PRESETS: ChartPreset[] = ["7d", "30d", "all", "custom"];
+
+function parseChartPreset(raw: string | undefined): ChartPreset {
+  return VALID_PRESETS.includes(raw as ChartPreset) ? (raw as ChartPreset) : "30d";
+}
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function presetToDateRange(
+  preset: ChartPreset,
+  chartFrom: string,
+  chartTo: string,
+): { from?: string; to?: string } {
+  const now = new Date();
+  if (preset === "7d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 7);
+    return { from: toIsoDate(from), to: toIsoDate(now) };
+  }
+  if (preset === "30d") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 30);
+    return { from: toIsoDate(from), to: toIsoDate(now) };
+  }
+  if (preset === "all") return {};
+  return { from: chartFrom || undefined, to: chartTo || undefined };
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: {
+    chartPreset?: string;
+    chartFrom?: string;
+    chartTo?: string;
+  };
+}) {
   const session = await getSessionProfile();
   const whiteLabelId = session?.whiteLabelId ?? null;
+
+  const currentChartPreset = parseChartPreset(searchParams.chartPreset);
+  const currentChartFrom = searchParams.chartFrom ?? "";
+  const currentChartTo = searchParams.chartTo ?? "";
+  const chartDateRange = presetToDateRange(currentChartPreset, currentChartFrom, currentChartTo);
 
   let stats = {
     customerTotal: 0,
@@ -33,11 +85,13 @@ export default async function DashboardPage() {
     scenarioActive: 0,
   };
   let recentCustomers: Awaited<ReturnType<typeof getRecentCustomers>> = [];
+  let trendData: Awaited<ReturnType<typeof getCustomerRegistrationTrend>> = [];
 
   try {
-    [stats, recentCustomers] = await Promise.all([
+    [stats, recentCustomers, trendData] = await Promise.all([
       getDashboardStats({ whiteLabelId }),
       getRecentCustomers(5, { whiteLabelId }),
+      getCustomerRegistrationTrend({ whiteLabelId, ...chartDateRange }),
     ]);
   } catch {
     // Supabase 未接続時はゼロ表示
@@ -45,7 +99,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* ヘッダー */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">ダッシュボード</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -53,7 +106,6 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* 未アクションアラート */}
       {stats.customerInactive > 0 && (
         <Link
           href="/customers?filter=inactive"
@@ -68,7 +120,6 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      {/* KPIカード 1行目 — 顧客・LP・商品 */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           href="/customers"
@@ -108,7 +159,6 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* KPIカード 2行目 — コース・シナリオ */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           href="/members"
@@ -124,10 +174,29 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* 直近の顧客登録 */}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-semibold text-foreground">顧客登録数の推移</h2>
+          <ChartDateRangeSelector
+            currentPreset={currentChartPreset}
+            currentFrom={currentChartFrom}
+            currentTo={currentChartTo}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
+          {currentChartPreset === "7d" && "過去7日間"}
+          {currentChartPreset === "30d" && "過去30日間"}
+          {currentChartPreset === "all" && "全期間"}
+          {currentChartPreset === "custom" && (currentChartFrom || currentChartTo
+            ? `${currentChartFrom || "開始日未設定"} 〜 ${currentChartTo || "終了日未設定"}`
+            : "期間指定なし")}
+          {"の顧客登録数"}（日別）
+        </p>
+        <CustomerTrendChart data={trendData} />
+      </div>
+
       <RecentCustomers customers={recentCustomers} />
 
-      {/* はじめにガイド（顧客がゼロのときだけ表示） */}
       {stats.customerTotal === 0 && (
         <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <h2 className="mb-3 text-base font-semibold">はじめに</h2>
