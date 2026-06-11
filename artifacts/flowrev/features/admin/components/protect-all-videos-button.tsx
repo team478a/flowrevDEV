@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { ShieldCheck, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  ShieldCheck,
+  ShieldAlert,
+  Loader2,
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProtectResult {
@@ -11,14 +18,49 @@ interface ProtectResult {
   errors: string[];
 }
 
-type State =
+interface UnprotectedCount {
+  unprotected: number;
+  total: number;
+}
+
+type CountState =
+  | { kind: "loading" }
+  | { kind: "loaded"; data: UnprotectedCount }
+  | { kind: "error" }
+  | { kind: "unavailable" };
+
+type ActionState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "success"; result: ProtectResult }
   | { kind: "error"; message: string };
 
 export function ProtectAllVideosButton() {
-  const [state, setState] = useState<State>({ kind: "idle" });
+  const [countState, setCountState] = useState<CountState>({ kind: "loading" });
+  const [actionState, setActionState] = useState<ActionState>({ kind: "idle" });
+
+  const fetchCount = useCallback(async () => {
+    setCountState({ kind: "loading" });
+    try {
+      const res = await fetch("/api/admin/video/unprotected-count");
+      if (res.status === 503) {
+        setCountState({ kind: "unavailable" });
+        return;
+      }
+      if (!res.ok) {
+        setCountState({ kind: "error" });
+        return;
+      }
+      const json = (await res.json()) as UnprotectedCount;
+      setCountState({ kind: "loaded", data: json });
+    } catch {
+      setCountState({ kind: "error" });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+  }, [fetchCount]);
 
   async function handleClick() {
     const confirmed = window.confirm(
@@ -28,7 +70,7 @@ export function ProtectAllVideosButton() {
     );
     if (!confirmed) return;
 
-    setState({ kind: "loading" });
+    setActionState({ kind: "loading" });
 
     try {
       const res = await fetch("/api/admin/video/protect-all", {
@@ -38,13 +80,17 @@ export function ProtectAllVideosButton() {
       const json = (await res.json()) as ProtectResult & { error?: string };
 
       if (!res.ok) {
-        setState({ kind: "error", message: json.error ?? "一括保護に失敗しました。" });
+        setActionState({
+          kind: "error",
+          message: json.error ?? "一括保護に失敗しました。",
+        });
         return;
       }
 
-      setState({ kind: "success", result: json });
+      setActionState({ kind: "success", result: json });
+      await fetchCount();
     } catch (e) {
-      setState({
+      setActionState({
         kind: "error",
         message: e instanceof Error ? e.message : "通信エラーが発生しました。",
       });
@@ -54,8 +100,11 @@ export function ProtectAllVideosButton() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
-        <div className="flex-1 flex flex-col gap-1">
-          <p className="text-sm font-medium text-foreground">既存動画を一括保護</p>
+        <div className="flex-1 flex flex-col gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-foreground">既存動画を一括保護</p>
+            <UnprotectedBadge state={countState} onRefresh={fetchCount} />
+          </div>
           <p className="text-xs text-muted-foreground">
             この操作を実行以前にアップロードされた動画はビデオ ID のみで
             誰でも視聴できる状態です。ボタンを押すと全動画に
@@ -66,10 +115,10 @@ export function ProtectAllVideosButton() {
           type="button"
           variant="secondary"
           onClick={handleClick}
-          disabled={state.kind === "loading"}
+          disabled={actionState.kind === "loading"}
           className="shrink-0"
         >
-          {state.kind === "loading" ? (
+          {actionState.kind === "loading" ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               処理中…
@@ -83,28 +132,36 @@ export function ProtectAllVideosButton() {
         </Button>
       </div>
 
-      {state.kind === "success" && (
+      {actionState.kind === "success" && (
         <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
           <div className="flex items-center gap-2 font-medium mb-1">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             一括保護が完了しました
           </div>
           <ul className="flex flex-col gap-0.5 text-xs">
-            <li>対象動画: <span className="font-mono">{state.result.total}</span> 件</li>
-            <li>更新成功: <span className="font-mono">{state.result.updated}</span> 件</li>
-            {state.result.failed > 0 && (
+            <li>
+              対象動画:{" "}
+              <span className="font-mono">{actionState.result.total}</span> 件
+            </li>
+            <li>
+              更新成功:{" "}
+              <span className="font-mono">{actionState.result.updated}</span> 件
+            </li>
+            {actionState.result.failed > 0 && (
               <li className="text-red-700">
-                更新失敗: <span className="font-mono">{state.result.failed}</span> 件
+                更新失敗:{" "}
+                <span className="font-mono">{actionState.result.failed}</span>{" "}
+                件
               </li>
             )}
           </ul>
-          {state.result.errors.length > 0 && (
+          {actionState.result.errors.length > 0 && (
             <details className="mt-2">
               <summary className="cursor-pointer text-xs text-red-700 hover:underline">
                 エラー詳細を表示
               </summary>
               <ul className="mt-1 flex flex-col gap-1 font-mono text-xs text-red-700 break-all">
-                {state.result.errors.slice(0, 10).map((e, i) => (
+                {actionState.result.errors.slice(0, 10).map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
               </ul>
@@ -113,12 +170,64 @@ export function ProtectAllVideosButton() {
         </div>
       )}
 
-      {state.kind === "error" && (
+      {actionState.kind === "error" && (
         <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{state.message}</span>
+          <span>{actionState.message}</span>
         </div>
       )}
     </div>
+  );
+}
+
+function UnprotectedBadge({
+  state,
+  onRefresh,
+}: {
+  state: CountState;
+  onRefresh: () => void;
+}) {
+  if (state.kind === "loading") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        確認中…
+      </span>
+    );
+  }
+
+  if (state.kind === "unavailable") {
+    return null;
+  }
+
+  if (state.kind === "error") {
+    return (
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/80"
+      >
+        <RefreshCw className="h-3 w-3" />
+        再取得
+      </button>
+    );
+  }
+
+  const { unprotected } = state.data;
+
+  if (unprotected === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+        <CheckCircle2 className="h-3 w-3" />
+        全件保護済み
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+      <ShieldAlert className="h-3 w-3" />
+      未保護: {unprotected} 件
+    </span>
   );
 }

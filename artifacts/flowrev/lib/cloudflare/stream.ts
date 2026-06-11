@@ -9,6 +9,61 @@ export interface ProtectAllVideosResult {
   errors: string[];
 }
 
+export interface UnprotectedCountResult {
+  unprotected: number;
+  total: number;
+}
+
+/**
+ * requireSignedURLs が false の動画数を返す。
+ * ページネーションで全件スキャンし、未保護件数と総件数を返す。
+ */
+export async function countUnprotectedVideos(
+  accountId: string,
+  apiToken: string,
+): Promise<UnprotectedCountResult> {
+  let unprotected = 0;
+  let total = 0;
+  let cursor: string | null = null;
+
+  while (true) {
+    const listUrl = new URL(`${CF_STREAM_BASE}/${accountId}/stream`);
+    if (cursor) listUrl.searchParams.set("after", cursor);
+
+    const listRes = await fetch(listUrl.toString(), {
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!listRes.ok) {
+      const body = await listRes.text().catch(() => "");
+      throw new Error(
+        `動画一覧の取得に失敗しました (${listRes.status}): ${body}`,
+      );
+    }
+
+    const json = (await listRes.json()) as {
+      result?: Array<{ uid?: string; requireSignedURLs?: boolean }>;
+      result_info?: { next_cursor?: string };
+    };
+
+    const videos = json.result ?? [];
+    for (const v of videos) {
+      total++;
+      if (!v.requireSignedURLs) unprotected++;
+    }
+
+    const nextCursor = json.result_info?.next_cursor;
+    if (!nextCursor || videos.length === 0) break;
+    cursor = nextCursor;
+  }
+
+  return { unprotected, total };
+}
+
 /**
  * Cloudflare Stream の全動画に requireSignedURLs: true を一括設定する。
  * すでに設定済みの動画もパッチを送るが冪等なので安全。
