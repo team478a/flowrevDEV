@@ -6,18 +6,21 @@ export interface CloudflareSettingsMasked {
   accountId: string | null;
   hasApiToken: boolean;
   hasWebhookSecret: boolean;
+  alertEmails: string | null;
 }
 
 export interface CloudflareSettingsResolved {
   accountId: string;
   apiToken: string;
   webhookSecret?: string;
+  alertEmails?: string | null;
 }
 
 export interface UpsertCloudflareSettingsInput {
   accountId?: string;
   apiToken?: string;
   webhookSecret?: string;
+  alertEmails?: string | null;
 }
 
 /** 管理画面用：API トークンと Webhook シークレットをマスクして返す */
@@ -25,7 +28,7 @@ export async function getCloudflareSettingsMasked(): Promise<CloudflareSettingsM
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cloudflare_settings")
-    .select("account_id, api_token_enc, webhook_secret_enc")
+    .select("account_id, api_token_enc, webhook_secret_enc, alert_emails")
     .limit(1)
     .maybeSingle();
 
@@ -37,6 +40,7 @@ export async function getCloudflareSettingsMasked(): Promise<CloudflareSettingsM
     accountId: (row.account_id as string) ?? null,
     hasApiToken: !!(row.api_token_enc as string),
     hasWebhookSecret: !!(row.webhook_secret_enc as string),
+    alertEmails: (row.alert_emails as string) ?? null,
   };
 }
 
@@ -45,7 +49,7 @@ export async function getCloudflareSettingsResolved(): Promise<CloudflareSetting
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cloudflare_settings")
-    .select("account_id, api_token_enc, webhook_secret_enc")
+    .select("account_id, api_token_enc, webhook_secret_enc, alert_emails")
     .limit(1)
     .maybeSingle();
 
@@ -61,6 +65,7 @@ export async function getCloudflareSettingsResolved(): Promise<CloudflareSetting
     webhookSecret: row.webhook_secret_enc
       ? decrypt(row.webhook_secret_enc as string)
       : undefined,
+    alertEmails: (row.alert_emails as string) ?? null,
   };
 }
 
@@ -93,7 +98,7 @@ export async function upsertCloudflareSettings(
 
   const { data: existing } = await admin
     .from("cloudflare_settings")
-    .select("id, account_id, api_token_enc, webhook_secret_enc")
+    .select("id, account_id, api_token_enc, webhook_secret_enc, alert_emails")
     .limit(1)
     .maybeSingle();
 
@@ -118,6 +123,12 @@ export async function upsertCloudflareSettings(
     payload.webhook_secret_enc = encrypt(input.webhookSecret);
   } else if (existingRow?.webhook_secret_enc) {
     payload.webhook_secret_enc = existingRow.webhook_secret_enc;
+  }
+
+  if (input.alertEmails !== undefined) {
+    payload.alert_emails = input.alertEmails;
+  } else if (existingRow?.alert_emails) {
+    payload.alert_emails = existingRow.alert_emails;
   }
 
   if (existingRow) {

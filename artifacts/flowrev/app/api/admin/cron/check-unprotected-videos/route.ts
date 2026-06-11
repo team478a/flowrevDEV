@@ -8,7 +8,10 @@ import { sendUnprotectedAlert } from "@/lib/email/send-unprotected-alert";
  * GET /api/admin/cron/check-unprotected-videos  ← Vercel Cron はこちらを呼ぶ
  * POST /api/admin/cron/check-unprotected-videos ← 外部スケジューラ / 手動テスト用
  *
- * requireSignedURLs: false の動画が 1 件以上あれば system_admin に通知メールを送る。
+ * requireSignedURLs: false の動画が 1 件以上あれば通知メールを送る。
+ * 送信先の優先順位:
+ *   1. cloudflare_settings.alert_emails（管理画面で設定）
+ *   2. system_admin 全員の auth メールアドレス（フォールバック）
  *
  * 認証: Authorization: Bearer <CRON_SECRET> ヘッダーで検証。
  * 未設定の場合は認証なし（開発時のみ許容）。
@@ -72,9 +75,9 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  const adminEmails = await getSystemAdminEmails().catch(() => []);
+  const toEmails = await resolveAlertEmails(settings.alertEmails ?? null);
 
-  if (adminEmails.length === 0) {
+  if (toEmails.length === 0) {
     return NextResponse.json(
       {
         ok: false,
@@ -82,7 +85,7 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
         total: countResult.total,
         notified: false,
         message:
-          "未保護動画が検出されましたが、system_admin のメールアドレスが見つかりませんでした。",
+          "未保護動画が検出されましたが、通知先メールアドレスが見つかりませんでした。",
       },
       { status: 500 },
     );
@@ -99,7 +102,7 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
 
   try {
     await sendUnprotectedAlert({
-      toEmails: adminEmails,
+      toEmails,
       unprotectedCount: countResult.unprotected,
       totalCount: countResult.total,
       checkedAt,
@@ -123,6 +126,23 @@ async function handleCron(req: NextRequest): Promise<NextResponse> {
     total: countResult.total,
     notified: true,
   });
+}
+
+/**
+ * アラート通知先を解決する。
+ * 1. cloudflare_settings.alert_emails が設定されていればそれを使う（カンマ区切りをパース）
+ * 2. 未設定の場合は system_admin の auth メールアドレスにフォールバック
+ */
+async function resolveAlertEmails(
+  configuredEmails: string | null,
+): Promise<string[]> {
+  if (configuredEmails && configuredEmails.trim()) {
+    return configuredEmails
+      .split(",")
+      .map((e) => e.trim())
+      .filter(Boolean);
+  }
+  return getSystemAdminEmails();
 }
 
 /**

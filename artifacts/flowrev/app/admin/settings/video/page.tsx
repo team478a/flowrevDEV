@@ -1,13 +1,21 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Settings2, Clock, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
-import { getCloudflareSettingsMasked } from "@/lib/repositories/cloudflare-settings";
+import {
+  getCloudflareSettingsMasked,
+  upsertCloudflareSettings,
+} from "@/lib/repositories/cloudflare-settings";
 import {
   getLatestProtectLog,
   getProtectLogsPage,
 } from "@/lib/repositories/cloudflare-protect-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
+import {
+  AlertEmailsForm,
+  type AlertEmailsFormState,
+} from "@/features/admin/components/alert-emails-form";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +38,34 @@ function formatJst(isoString: string): string {
 
 function buildPageUrl(page: number): string {
   return `/admin/settings/video?page=${page}`;
+}
+
+async function saveAlertEmailsAction(
+  _prev: AlertEmailsFormState,
+  formData: FormData,
+): Promise<AlertEmailsFormState> {
+  "use server";
+  const session = await getSessionProfile();
+  if (session?.role !== "system_admin") redirect("/login");
+
+  const raw = ((formData.get("alertEmails") as string | null) ?? "").trim();
+
+  const normalized = raw
+    ? raw
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean)
+        .join(", ")
+    : null;
+
+  try {
+    await upsertCloudflareSettings({ alertEmails: normalized });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "保存に失敗しました。" };
+  }
+
+  revalidatePath("/admin/settings/video");
+  return { error: null, success: true };
 }
 
 export default async function VideoSettingsPage({
@@ -253,6 +289,20 @@ export default async function VideoSettingsPage({
           )}
         </div>
       )}
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-base font-semibold mb-1 text-foreground">
+          未保護動画アラート通知先
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4 pb-4 border-b border-border">
+          定期チェックで未保護動画が検出された場合の通知先を設定します。
+          未設定の場合は system_admin のメールアドレスに送信されます。
+        </p>
+        <AlertEmailsForm
+          currentEmails={current?.alertEmails ?? null}
+          action={saveAlertEmailsAction}
+        />
+      </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold mb-4 pb-4 border-b border-border">設定手順</h2>
