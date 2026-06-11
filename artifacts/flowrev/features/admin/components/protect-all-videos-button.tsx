@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -36,6 +37,7 @@ type ActionState =
   | { kind: "error"; message: string };
 
 export function ProtectAllVideosButton() {
+  const router = useRouter();
   const [countState, setCountState] = useState<CountState>({ kind: "loading" });
   const [actionState, setActionState] = useState<ActionState>({ kind: "idle" });
 
@@ -89,6 +91,7 @@ export function ProtectAllVideosButton() {
 
       setActionState({ kind: "success", result: json });
       await fetchCount();
+      router.refresh();
     } catch (e) {
       setActionState({
         kind: "error",
