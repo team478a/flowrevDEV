@@ -22,3 +22,15 @@ CREATE POLICY "system_admin: cloudflare_settings 全操作"
 -- レッスンテーブルに動画タイプと Cloudflare 動画 ID カラムを追加
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS video_type TEXT DEFAULT 'url';
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS cloudflare_video_id TEXT;
+
+-- Cloudflare Stream トランスコードステータス
+-- pending  : アップロード済み、トランスコード待ちまたは処理中
+-- ready    : トランスコード完了、再生可能
+-- error    : トランスコード失敗
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS cloudflare_video_status TEXT DEFAULT 'pending';
+
+-- 既存の Cloudflare 動画はすでに再生可能な状態で運用されているため
+-- バックフィルで ready にセットする（DEFAULT 'pending' で追加されたカラムを上書き）
+UPDATE lessons
+SET cloudflare_video_status = 'ready'
+WHERE cloudflare_video_id IS NOT NULL;

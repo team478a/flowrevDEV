@@ -25,6 +25,7 @@ export interface LessonRow {
   videoType: string;
   videoUrl: string | null;
   cloudflareVideoId: string | null;
+  cloudflareVideoStatus: string | null;
   textContent: string | null;
   fileUrl: string | null;
   durationSeconds: number | null;
@@ -79,7 +80,7 @@ const COURSE_COLS =
   "id, white_label_id, client_id, product_id, title, description, thumbnail_url, status, sort_order, created_at, updated_at";
 
 const LESSON_COLS =
-  "id, white_label_id, client_id, course_id, title, content_type, video_type, video_url, cloudflare_video_id, text_content, file_url, duration_seconds, sort_order, status, created_at, updated_at";
+  "id, white_label_id, client_id, course_id, title, content_type, video_type, video_url, cloudflare_video_id, cloudflare_video_status, text_content, file_url, duration_seconds, sort_order, status, created_at, updated_at";
 
 function mapCourse(r: Record<string, unknown>): CourseRow {
   return {
@@ -109,6 +110,7 @@ function mapLesson(r: Record<string, unknown>): LessonRow {
     videoType: (r.video_type as string) ?? "url",
     videoUrl: (r.video_url as string) ?? null,
     cloudflareVideoId: (r.cloudflare_video_id as string) ?? null,
+    cloudflareVideoStatus: (r.cloudflare_video_status as string) ?? null,
     textContent: (r.text_content as string) ?? null,
     fileUrl: (r.file_url as string) ?? null,
     durationSeconds: (r.duration_seconds as number) ?? null,
@@ -248,6 +250,8 @@ export async function addLesson(input: CreateLessonInput): Promise<LessonRow> {
       video_type: input.videoType ?? "url",
       video_url: input.videoUrl ?? null,
       cloudflare_video_id: input.cloudflareVideoId ?? null,
+      // Cloudflare 動画が指定された場合はトランスコード待ち状態で作成する
+      cloudflare_video_status: input.cloudflareVideoId ? "pending" : null,
       text_content: input.textContent ?? null,
       file_url: input.fileUrl ?? null,
       duration_seconds: input.durationSeconds ?? null,
@@ -268,6 +272,16 @@ export async function updateLesson(
   input: UpdateLessonInput,
 ): Promise<LessonRow> {
   const supabase = createClient();
+
+  // cloudflareVideoId が変更された場合は status を pending にリセットする
+  // null への変更（動画削除）は status も null にリセット
+  const cfStatusPatch: Record<string, unknown> = {};
+  if (input.cloudflareVideoId !== undefined) {
+    cfStatusPatch.cloudflare_video_status = input.cloudflareVideoId
+      ? "pending"
+      : null;
+  }
+
   const { data, error } = await supabase
     .from("lessons")
     .update({
@@ -276,6 +290,7 @@ export async function updateLesson(
       ...(input.videoType !== undefined && { video_type: input.videoType }),
       ...(input.videoUrl !== undefined && { video_url: input.videoUrl }),
       ...(input.cloudflareVideoId !== undefined && { cloudflare_video_id: input.cloudflareVideoId }),
+      ...cfStatusPatch,
       ...(input.textContent !== undefined && { text_content: input.textContent }),
       ...(input.fileUrl !== undefined && { file_url: input.fileUrl }),
       ...(input.durationSeconds !== undefined && {

@@ -33,6 +33,7 @@ function mapLesson(r: Record<string, unknown>): LessonRow {
     videoType: (r.video_type as string) ?? "url",
     videoUrl: (r.video_url as string) ?? null,
     cloudflareVideoId: (r.cloudflare_video_id as string) ?? null,
+    cloudflareVideoStatus: (r.cloudflare_video_status as string) ?? null,
     textContent: (r.text_content as string) ?? null,
     fileUrl: (r.file_url as string) ?? null,
     durationSeconds: (r.duration_seconds as number) ?? null,

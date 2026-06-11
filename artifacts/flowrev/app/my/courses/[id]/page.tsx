@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, FileDown, CheckCircle2, Lock } from "lucide-react";
+import { ChevronLeft, FileDown, CheckCircle2, Lock, Clock, AlertCircle } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import {
   getPublishedCourse,
@@ -36,6 +36,25 @@ function LessonContent({
     lesson.videoType === "cloudflare" &&
     lesson.cloudflareVideoId
   ) {
+    if (lesson.cloudflareVideoStatus === "error") {
+      return (
+        <div className="aspect-video w-full rounded-lg flex flex-col items-center justify-center gap-3 bg-destructive/10 border border-destructive/30">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-sm font-medium text-destructive">動画の処理中にエラーが発生しました。</p>
+          <p className="text-xs text-muted-foreground">管理者にお問い合わせください。</p>
+        </div>
+      );
+    }
+    // null は後方互換性のためレガシーレコード扱い（ready とみなして再生）
+    if (lesson.cloudflareVideoStatus !== null && lesson.cloudflareVideoStatus !== "ready") {
+      return (
+        <div className="aspect-video w-full rounded-lg flex flex-col items-center justify-center gap-3 bg-muted border">
+          <Clock className="h-10 w-10 text-muted-foreground animate-pulse" />
+          <p className="text-sm font-medium">動画を準備中です...</p>
+          <p className="text-xs text-muted-foreground">トランスコードが完了するまでしばらくお待ちください。</p>
+        </div>
+      );
+    }
     if (!cfSignedToken) {
       return (
         <div className="aspect-video w-full rounded-lg overflow-hidden bg-black flex items-center justify-center">
