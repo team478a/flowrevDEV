@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, FileDown, CheckCircle2, Lock, Clock, AlertCircle } from "lucide-react";
+import { ChevronLeft, FileDown, CheckCircle2, Lock, Clock, AlertCircle, ShoppingCart } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import {
   getPublishedCourse,
@@ -11,6 +11,7 @@ import {
   getCourseProgress,
 } from "@/lib/repositories/progress";
 import { hasPurchasedProduct } from "@/lib/repositories/purchases";
+import { getPublishedLpByProductId } from "@/lib/repositories/landing-pages";
 import { CompleteButton } from "@/features/my/components/complete-button";
 import { Badge } from "@/components/ui/badge";
 import type { LessonRow } from "@/lib/repositories/courses";
@@ -172,6 +173,50 @@ export default async function MyCoursePage({ params, searchParams }: Props) {
   ]);
 
   if (!course) notFound();
+
+  if (course.productId) {
+    const purchased = customerId
+      ? await hasPurchasedProduct(customerId, course.productId).catch(() => false)
+      : false;
+
+    if (!purchased) {
+      const lp = await getPublishedLpByProductId(course.productId).catch(() => null);
+      return (
+        <div className="flex flex-col gap-6">
+          <div>
+            <Link
+              href="/my"
+              className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              コース一覧に戻る
+            </Link>
+            <h1 className="text-2xl font-bold">{course.title}</h1>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-6 py-16 text-center">
+            <div className="rounded-full bg-muted p-5">
+              <Lock className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-lg font-semibold">このコースは購入が必要です</p>
+              <p className="text-sm text-muted-foreground">
+                コンテンツを閲覧するには、対応する商品をご購入ください。
+              </p>
+            </div>
+            {lp && (
+              <Link
+                href={`/p/${lp.slug}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                購入ページへ
+              </Link>
+            )}
+          </div>
+        </div>
+      );
+    }
+  }
 
   const progressList = customerId
     ? await getCourseProgress(customerId, params.id).catch(() => [])

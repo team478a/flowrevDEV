@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface LandingPageRow {
   id: string;
@@ -176,4 +177,25 @@ export async function deleteLandingPage(id: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("landing_pages").delete().eq("id", id);
   if (error) throw new Error(`LPの削除に失敗しました: ${error.message}`);
+}
+
+/**
+ * 商品 ID に紐づく公開済み LP のスラッグを返す（顧客向け購入ページリンク用）。
+ * RLS 非適用の admin client を使用。見つからない場合は null。
+ */
+export async function getPublishedLpByProductId(
+  productId: string,
+): Promise<{ slug: string; title: string } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("landing_pages")
+    .select("slug, title")
+    .eq("product_id", productId)
+    .eq("status", "published")
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const r = data as Record<string, unknown>;
+  return { slug: r.slug as string, title: r.title as string };
 }
