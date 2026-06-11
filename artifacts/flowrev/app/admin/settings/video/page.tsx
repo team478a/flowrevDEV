@@ -194,7 +194,7 @@ export default async function VideoSettingsPage({
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      <div id="protect-all-section" className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold mb-1 text-foreground">既存動画の一括保護</h2>
         <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
           API 設定完了後、この機能が有効になります。新規アップロード動画は自動的に保護されますが、

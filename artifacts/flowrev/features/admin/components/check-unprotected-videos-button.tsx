@@ -48,14 +48,23 @@ export function CheckUnprotectedVideosButton() {
 
       setActionState({ kind: "success", result: json });
 
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      if (json.unprotected === 0) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
     } catch (e) {
       setActionState({
         kind: "error",
         message: e instanceof Error ? e.message : "通信エラーが発生しました。",
       });
+    }
+  }
+
+  function scrollToProtectSection() {
+    const el = document.getElementById("protect-all-section");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -92,11 +101,11 @@ export function CheckUnprotectedVideosButton() {
           className={[
             "rounded-md border px-4 py-3 text-sm",
             actionState.result.unprotected > 0
-              ? "border-amber-200 bg-amber-50 text-amber-800"
+              ? "border-amber-300 bg-amber-50 text-amber-800"
               : "border-green-200 bg-green-50 text-green-800",
           ].join(" ")}
         >
-          <div className="flex items-center gap-2 font-medium mb-1">
+          <div className="flex items-center gap-2 font-medium mb-2">
             {actionState.result.unprotected > 0 ? (
               <ShieldAlert className="h-4 w-4 shrink-0" />
             ) : (
@@ -104,7 +113,7 @@ export function CheckUnprotectedVideosButton() {
             )}
             チェック完了
           </div>
-          <ul className="flex flex-col gap-0.5 text-xs">
+          <ul className="flex flex-col gap-0.5 text-xs mb-2">
             <li>
               合計動画数:{" "}
               <span className="font-mono">{actionState.result.total}</span> 件
@@ -127,9 +136,23 @@ export function CheckUnprotectedVideosButton() {
             )}
           </ul>
           {actionState.result.message && (
-            <p className="mt-1 text-xs opacity-80">{actionState.result.message}</p>
+            <p className="text-xs opacity-80 mb-2">{actionState.result.message}</p>
           )}
-          <p className="mt-2 text-xs opacity-70">ページを更新しています…</p>
+
+          {actionState.result.unprotected > 0 ? (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={scrollToProtectSection}
+              className="mt-1 bg-amber-600 hover:bg-amber-700 text-white border-0"
+            >
+              <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
+              一括保護を実行する（{actionState.result.unprotected} 件）
+            </Button>
+          ) : (
+            <p className="text-xs opacity-70">ページを更新しています…</p>
+          )}
         </div>
       )}
 
