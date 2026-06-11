@@ -11,8 +11,9 @@ import {
   getLatestProtectLog,
   getProtectLogsPage,
 } from "@/lib/repositories/cloudflare-protect-logs";
-import { getVideoCheckLogsPage } from "@/lib/repositories/video-check-logs";
+import { getVideoCheckLogsPage, getVideoCheckLogsForChart } from "@/lib/repositories/video-check-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
+import { VideoCheckTrendChart } from "@/features/admin/components/video-check-trend-chart";
 import {
   AlertEmailsForm,
   type AlertEmailsFormState,
@@ -85,7 +86,7 @@ export default async function VideoSettingsPage({
   const currentPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const currentCheckPage = Math.max(1, parseInt(searchParams.checkPage ?? "1", 10) || 1);
 
-  const [current, latestLog, logsPage, checkLogsPage] = await Promise.all([
+  const [current, latestLog, logsPage, checkLogsPage, chartData] = await Promise.all([
     getCloudflareSettingsMasked().catch(() => null),
     getLatestProtectLog().catch(() => null),
     getProtectLogsPage(currentPage, PAGE_SIZE).catch(() => ({
@@ -100,6 +101,7 @@ export default async function VideoSettingsPage({
       page: currentCheckPage,
       pageSize: CHECK_PAGE_SIZE,
     })),
+    getVideoCheckLogsForChart(30).catch(() => []),
   ]);
 
   const isConfigured = !!current?.accountId && !!current?.hasApiToken;
@@ -304,6 +306,18 @@ export default async function VideoSettingsPage({
               </Link>
             </div>
           )}
+        </div>
+      )}
+
+      {chartData.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-base font-semibold mb-1 text-foreground">
+            未保護件数 推移グラフ
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4 pb-4 border-b border-border">
+            直近 {chartData.length} 件のチェック結果（未保護数・合計数）の推移です。
+          </p>
+          <VideoCheckTrendChart data={chartData} />
         </div>
       )}
 
