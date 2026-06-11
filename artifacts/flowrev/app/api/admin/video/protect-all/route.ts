@@ -1,16 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
-import { protectAllVideos } from "@/lib/cloudflare/stream";
+import { protectAllVideos, protectVideosByIds } from "@/lib/cloudflare/stream";
 import { insertProtectLog } from "@/lib/repositories/cloudflare-protect-logs";
 
 /**
  * POST /api/admin/video/protect-all
- * Cloudflare Stream の全動画に requireSignedURLs: true を一括適用する。
+ * Cloudflare Stream の全動画（または指定動画）に requireSignedURLs: true を適用する。
  * system_admin のみ利用可能。
- * Response: { total, updated, failed, errors }
+ *
+ * Body (optional): { videoIds?: string[] }
+ *   videoIds が指定された場合はそのIDのみ対象（失敗分の再試行用）。
+ *   省略時は全動画が対象。
+ *
+ * Response: { total, updated, failed, errors, failedIds }
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await getSessionProfile();
   if (!session) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
@@ -33,8 +38,20 @@ export async function POST() {
     );
   }
 
+  let videoIds: string[] | undefined;
   try {
-    const result = await protectAllVideos(settings.accountId, settings.apiToken);
+    const body = await req.json().catch(() => ({}));
+    if (Array.isArray(body?.videoIds) && body.videoIds.length > 0) {
+      videoIds = body.videoIds as string[];
+    }
+  } catch {
+    // ボディ解析失敗時は全件モードにフォールバック
+  }
+
+  try {
+    const result = videoIds
+      ? await protectVideosByIds(settings.accountId, settings.apiToken, videoIds)
+      : await protectAllVideos(settings.accountId, settings.apiToken);
 
     await insertProtectLog({
       executedBy: session.userId,

@@ -7,6 +7,7 @@ export interface ProtectAllVideosResult {
   updated: number;
   failed: number;
   errors: string[];
+  failedIds: string[];
 }
 
 export interface UnprotectedVideoItem {
@@ -93,6 +94,7 @@ export async function protectAllVideos(
     updated: 0,
     failed: 0,
     errors: [],
+    failedIds: [],
   };
 
   const videoIds: string[] = [];
@@ -152,12 +154,64 @@ export async function protectAllVideos(
       if (!patchRes.ok) {
         const body = await patchRes.text().catch(() => "");
         result.failed++;
+        result.failedIds.push(videoId);
         result.errors.push(`${videoId}: (${patchRes.status}) ${body}`);
       } else {
         result.updated++;
       }
     } catch (e) {
       result.failed++;
+      result.failedIds.push(videoId);
+      result.errors.push(
+        `${videoId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 指定した動画IDのみに requireSignedURLs: true を設定する。
+ * 一括保護で失敗した動画の再試行用。
+ */
+export async function protectVideosByIds(
+  accountId: string,
+  apiToken: string,
+  videoIds: string[],
+): Promise<ProtectAllVideosResult> {
+  const result: ProtectAllVideosResult = {
+    total: videoIds.length,
+    updated: 0,
+    failed: 0,
+    errors: [],
+    failedIds: [],
+  };
+
+  for (const videoId of videoIds) {
+    const patchUrl = `${CF_STREAM_BASE}/${accountId}/stream/${videoId}`;
+    try {
+      const patchRes = await fetch(patchUrl, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ requireSignedURLs: true }),
+        cache: "no-store",
+      });
+
+      if (!patchRes.ok) {
+        const body = await patchRes.text().catch(() => "");
+        result.failed++;
+        result.failedIds.push(videoId);
+        result.errors.push(`${videoId}: (${patchRes.status}) ${body}`);
+      } else {
+        result.updated++;
+      }
+    } catch (e) {
+      result.failed++;
+      result.failedIds.push(videoId);
       result.errors.push(
         `${videoId}: ${e instanceof Error ? e.message : String(e)}`,
       );

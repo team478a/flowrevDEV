@@ -18,6 +18,7 @@ interface ProtectResult {
   updated: number;
   failed: number;
   errors: string[];
+  failedIds?: string[];
 }
 
 interface UnprotectedCount {
@@ -34,6 +35,7 @@ type CountState =
 type ActionState =
   | { kind: "idle" }
   | { kind: "loading" }
+  | { kind: "retrying" }
   | { kind: "success"; result: ProtectResult }
   | { kind: "error"; message: string };
 
@@ -65,19 +67,14 @@ export function ProtectAllVideosButton() {
     fetchCount();
   }, [fetchCount]);
 
-  async function handleClick() {
-    const confirmed = window.confirm(
-      "Cloudflare Stream 上の全動画に「署名付き URL 必須」を一括設定します。\n" +
-        "この操作は冪等（再実行しても安全）ですが、動画数によっては完了まで数十秒かかる場合があります。\n\n" +
-        "実行しますか？",
-    );
-    if (!confirmed) return;
-
-    setActionState({ kind: "loading" });
+  async function runProtect(videoIds?: string[]) {
+    setActionState({ kind: videoIds ? "retrying" : "loading" });
 
     try {
       const res = await fetch("/api/admin/video/protect-all", {
         method: "POST",
+        headers: videoIds ? { "Content-Type": "application/json" } : undefined,
+        body: videoIds ? JSON.stringify({ videoIds }) : undefined,
       });
 
       const json = (await res.json()) as ProtectResult & { error?: string };
@@ -92,11 +89,13 @@ export function ProtectAllVideosButton() {
       setActionState({ kind: "success", result: json });
       if (json.failed > 0) {
         toast.warning(
-          `一括保護が完了しました（${json.updated}件更新・${json.failed}件失敗）`,
+          `${videoIds ? "再試行" : "一括保護"}が完了しました（${json.updated}件更新・${json.failed}件失敗）`,
           { description: "失敗したものは画面内のエラー詳細をご確認ください。" },
         );
       } else {
-        toast.success(`一括保護が完了しました（${json.updated}件更新）`);
+        toast.success(
+          `${videoIds ? "再試行" : "一括保護"}が完了しました（${json.updated}件更新）`,
+        );
       }
       await fetchCount();
       router.refresh();
@@ -107,6 +106,23 @@ export function ProtectAllVideosButton() {
       toast.error("一括保護に失敗しました", { description: message });
     }
   }
+
+  async function handleClick() {
+    const confirmed = window.confirm(
+      "Cloudflare Stream 上の全動画に「署名付き URL 必須」を一括設定します。\n" +
+        "この操作は冪等（再実行しても安全）ですが、動画数によっては完了まで数十秒かかる場合があります。\n\n" +
+        "実行しますか？",
+    );
+    if (!confirmed) return;
+    await runProtect();
+  }
+
+  async function handleRetry(failedIds: string[]) {
+    await runProtect(failedIds);
+  }
+
+  const isProcessing =
+    actionState.kind === "loading" || actionState.kind === "retrying";
 
   return (
     <div className="flex flex-col gap-3">
@@ -126,7 +142,7 @@ export function ProtectAllVideosButton() {
           type="button"
           variant="secondary"
           onClick={handleClick}
-          disabled={actionState.kind === "loading"}
+          disabled={isProcessing}
           className="shrink-0"
         >
           {actionState.kind === "loading" ? (
@@ -144,40 +160,17 @@ export function ProtectAllVideosButton() {
       </div>
 
       {actionState.kind === "success" && (
-        <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          <div className="flex items-center gap-2 font-medium mb-1">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            一括保護が完了しました
-          </div>
-          <ul className="flex flex-col gap-0.5 text-xs">
-            <li>
-              対象動画:{" "}
-              <span className="font-mono">{actionState.result.total}</span> 件
-            </li>
-            <li>
-              更新成功:{" "}
-              <span className="font-mono">{actionState.result.updated}</span> 件
-            </li>
-            {actionState.result.failed > 0 && (
-              <li className="text-red-700">
-                更新失敗:{" "}
-                <span className="font-mono">{actionState.result.failed}</span>{" "}
-                件
-              </li>
-            )}
-          </ul>
-          {actionState.result.errors.length > 0 && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-red-700 hover:underline">
-                エラー詳細を表示
-              </summary>
-              <ul className="mt-1 flex flex-col gap-1 font-mono text-xs text-red-700 break-all">
-                {actionState.result.errors.slice(0, 10).map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            </details>
-          )}
+        <ResultPanel
+          result={actionState.result}
+          isRetrying={false}
+          onRetry={handleRetry}
+        />
+      )}
+
+      {actionState.kind === "retrying" && (
+        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          <span>失敗分を再試行しています…</span>
         </div>
       )}
 
@@ -186,6 +179,68 @@ export function ProtectAllVideosButton() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{actionState.message}</span>
         </div>
+      )}
+    </div>
+  );
+}
+
+function ResultPanel({
+  result,
+  isRetrying,
+  onRetry,
+}: {
+  result: ProtectResult;
+  isRetrying: boolean;
+  onRetry: (failedIds: string[]) => void;
+}) {
+  const failedIds = result.failedIds ?? [];
+
+  return (
+    <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+      <div className="flex items-center gap-2 font-medium mb-1">
+        <CheckCircle2 className="h-4 w-4 shrink-0" />
+        一括保護が完了しました
+      </div>
+      <ul className="flex flex-col gap-0.5 text-xs">
+        <li>
+          対象動画:{" "}
+          <span className="font-mono">{result.total}</span> 件
+        </li>
+        <li>
+          更新成功:{" "}
+          <span className="font-mono">{result.updated}</span> 件
+        </li>
+        {result.failed > 0 && (
+          <li className="flex items-center gap-2 text-red-700 flex-wrap">
+            <span>
+              更新失敗:{" "}
+              <span className="font-mono">{result.failed}</span> 件
+            </span>
+            {failedIds.length > 0 && (
+              <button
+                type="button"
+                disabled={isRetrying}
+                onClick={() => onRetry(failedIds)}
+                className="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <RefreshCw className="h-3 w-3" />
+                失敗分を再試行
+              </button>
+            )}
+          </li>
+        )}
+      </ul>
+      {result.errors.length > 0 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs text-red-700 hover:underline">
+            エラー詳細を表示
+          </summary>
+          <ul className="mt-1 flex flex-col gap-1 font-mono text-xs text-red-700 break-all">
+            {result.errors.slice(0, 10).map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );
