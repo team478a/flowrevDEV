@@ -5,7 +5,7 @@ import { getSessionProfile } from "@/features/auth/session";
 import { getCloudflareSettingsMasked } from "@/lib/repositories/cloudflare-settings";
 import { getLatestProtectLog } from "@/lib/repositories/cloudflare-protect-logs";
 import { ProtectAllVideosButton } from "@/features/admin/components/protect-all-videos-button";
-import { Clock } from "lucide-react";
+import { Clock, ChevronDown, AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -94,25 +94,54 @@ export default async function VideoSettingsPage() {
         </p>
 
         {latestLog && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground mb-4">
-            <Clock className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              最終実行:{" "}
-              <span className="font-medium text-foreground">
-                {formatJst(latestLog.executedAt)}
-              </span>
-              {" — "}
-              <span className="font-medium text-foreground">
-                {latestLog.updated} 件
-              </span>
-              更新
-              {latestLog.failed > 0 && (
-                <span className="text-red-600 ml-1">
-                  （{latestLog.failed} 件失敗）
+          <div className="mb-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                最終実行:{" "}
+                <span className="font-medium text-foreground">
+                  {formatJst(latestLog.executedAt)}
                 </span>
-              )}
-              {" / "}対象 {latestLog.total} 件
-            </span>
+                {" — "}
+                <span className="font-medium text-foreground">
+                  {latestLog.updated} 件
+                </span>
+                更新
+                {latestLog.failed > 0 && (
+                  <span className="text-red-600 ml-1">
+                    （{latestLog.failed} 件失敗）
+                  </span>
+                )}
+                {" / "}対象 {latestLog.total} 件
+              </span>
+            </div>
+
+            {latestLog.failed > 0 && latestLog.errorDetails && latestLog.errorDetails.length > 0 && (
+              <details className="group rounded-md border border-red-200 bg-red-50 text-xs">
+                <summary className="flex cursor-pointer items-center gap-1.5 px-3 py-2 text-red-700 hover:bg-red-100/60 select-none list-none">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="font-medium">
+                    失敗した動画 ID を確認する（{latestLog.errorDetails.length} 件）
+                  </span>
+                  <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+                </summary>
+                <ul className="border-t border-red-200 divide-y divide-red-100">
+                  {latestLog.errorDetails.map((detail, i) => {
+                    const colonIdx = detail.indexOf(": ");
+                    const videoId = colonIdx !== -1 ? detail.slice(0, colonIdx) : detail;
+                    const errorMsg = colonIdx !== -1 ? detail.slice(colonIdx + 2) : "";
+                    return (
+                      <li key={i} className="px-3 py-1.5">
+                        <span className="font-mono text-red-800 break-all">{videoId}</span>
+                        {errorMsg && (
+                          <span className="ml-2 text-red-600 break-all">{errorMsg}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            )}
           </div>
         )}
 

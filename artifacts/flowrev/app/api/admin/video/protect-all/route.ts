@@ -41,8 +41,8 @@ export async function POST() {
       total: result.total,
       updated: result.updated,
       failed: result.failed,
-    }).catch(() => {
-    });
+      errorDetails: result.errors.length > 0 ? result.errors : undefined,
+    }).catch(() => {});
 
     return NextResponse.json(result);
   } catch (e) {

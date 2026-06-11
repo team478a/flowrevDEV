@@ -8,6 +8,7 @@ export interface CloudflareProtectLog {
   total: number;
   updated: number;
   failed: number;
+  errorDetails: string[] | null;
 }
 
 /** 最新の一括保護ログを1件返す */
@@ -15,7 +16,7 @@ export async function getLatestProtectLog(): Promise<CloudflareProtectLog | null
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("cloudflare_protect_logs")
-    .select("id, executed_at, executed_by, total, updated, failed")
+    .select("id, executed_at, executed_by, total, updated, failed, error_details")
     .order("executed_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -31,6 +32,7 @@ export async function getLatestProtectLog(): Promise<CloudflareProtectLog | null
     total: (row.total as number) ?? 0,
     updated: (row.updated as number) ?? 0,
     failed: (row.failed as number) ?? 0,
+    errorDetails: (row.error_details as string[] | null) ?? null,
   };
 }
 
@@ -40,6 +42,7 @@ export async function insertProtectLog(params: {
   total: number;
   updated: number;
   failed: number;
+  errorDetails?: string[];
 }): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin.from("cloudflare_protect_logs").insert({
@@ -47,6 +50,10 @@ export async function insertProtectLog(params: {
     total: params.total,
     updated: params.updated,
     failed: params.failed,
+    error_details:
+      params.errorDetails && params.errorDetails.length > 0
+        ? params.errorDetails
+        : null,
   });
   if (error) throw new Error(`保護ログの保存に失敗: ${error.message}`);
 }
