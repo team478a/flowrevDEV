@@ -5,6 +5,7 @@ export interface CloudflareProtectLog {
   id: string;
   executedAt: string;
   executedBy: string | null;
+  executorName: string | null;
   total: number;
   updated: number;
   failed: number;
@@ -25,10 +26,23 @@ export async function getLatestProtectLog(): Promise<CloudflareProtectLog | null
   if (!data) return null;
 
   const row = data as Record<string, unknown>;
+  const executedBy = (row.executed_by as string) ?? null;
+
+  let executorName: string | null = null;
+  if (executedBy) {
+    const { data: profile } = await admin
+      .from("user_profiles")
+      .select("display_name")
+      .eq("id", executedBy)
+      .maybeSingle();
+    executorName = (profile as Record<string, unknown> | null)?.display_name as string | null ?? null;
+  }
+
   return {
     id: row.id as string,
     executedAt: row.executed_at as string,
-    executedBy: (row.executed_by as string) ?? null,
+    executedBy,
+    executorName,
     total: (row.total as number) ?? 0,
     updated: (row.updated as number) ?? 0,
     failed: (row.failed as number) ?? 0,
@@ -50,15 +64,44 @@ export async function getRecentProtectLogs(
   if (error) throw new Error(`保護ログの取得に失敗: ${error.message}`);
   if (!data) return [];
 
-  return (data as Record<string, unknown>[]).map((row) => ({
-    id: row.id as string,
-    executedAt: row.executed_at as string,
-    executedBy: (row.executed_by as string) ?? null,
-    total: (row.total as number) ?? 0,
-    updated: (row.updated as number) ?? 0,
-    failed: (row.failed as number) ?? 0,
-    errorDetails: null,
-  }));
+  const rows = data as Record<string, unknown>[];
+
+  const executorIds = [
+    ...new Set(
+      rows
+        .map((r) => r.executed_by as string | null)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+
+  const nameMap = new Map<string, string>();
+  if (executorIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("user_profiles")
+      .select("id, display_name")
+      .in("id", executorIds);
+    if (profiles) {
+      for (const p of profiles as Record<string, unknown>[]) {
+        const pid = p.id as string;
+        const dn = (p.display_name as string | null) ?? null;
+        if (pid && dn) nameMap.set(pid, dn);
+      }
+    }
+  }
+
+  return rows.map((row) => {
+    const executedBy = (row.executed_by as string) ?? null;
+    return {
+      id: row.id as string,
+      executedAt: row.executed_at as string,
+      executedBy,
+      executorName: executedBy ? (nameMap.get(executedBy) ?? null) : null,
+      total: (row.total as number) ?? 0,
+      updated: (row.updated as number) ?? 0,
+      failed: (row.failed as number) ?? 0,
+      errorDetails: null,
+    };
+  });
 }
 
 export interface ProtectLogsPage {
@@ -86,15 +129,44 @@ export async function getProtectLogsPage(
 
   if (error) throw new Error(`保護ログの取得に失敗: ${error.message}`);
 
-  const logs = (data ?? []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    executedAt: row.executed_at as string,
-    executedBy: (row.executed_by as string) ?? null,
-    total: (row.total as number) ?? 0,
-    updated: (row.updated as number) ?? 0,
-    failed: (row.failed as number) ?? 0,
-    errorDetails: null,
-  }));
+  const rows = (data ?? []) as Record<string, unknown>[];
+
+  const executorIds = [
+    ...new Set(
+      rows
+        .map((r) => r.executed_by as string | null)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+
+  const nameMap = new Map<string, string>();
+  if (executorIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("user_profiles")
+      .select("id, display_name")
+      .in("id", executorIds);
+    if (profiles) {
+      for (const p of profiles as Record<string, unknown>[]) {
+        const pid = p.id as string;
+        const dn = (p.display_name as string | null) ?? null;
+        if (pid && dn) nameMap.set(pid, dn);
+      }
+    }
+  }
+
+  const logs = rows.map((row) => {
+    const executedBy = (row.executed_by as string) ?? null;
+    return {
+      id: row.id as string,
+      executedAt: row.executed_at as string,
+      executedBy,
+      executorName: executedBy ? (nameMap.get(executedBy) ?? null) : null,
+      total: (row.total as number) ?? 0,
+      updated: (row.updated as number) ?? 0,
+      failed: (row.failed as number) ?? 0,
+      errorDetails: null,
+    };
+  });
 
   return { logs, total: count ?? 0, page, pageSize };
 }

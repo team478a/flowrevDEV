@@ -184,6 +184,7 @@ export default async function VideoSettingsPage({
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">日時（JST）</th>
+                  <th className="pb-2 pr-4 font-medium">実行者</th>
                   <th className="pb-2 pr-4 font-medium text-right">対象</th>
                   <th className="pb-2 pr-4 font-medium text-right">更新</th>
                   <th className="pb-2 font-medium text-right">失敗</th>
@@ -199,6 +200,9 @@ export default async function VideoSettingsPage({
                     >
                       <td className="py-2 pr-4 font-mono whitespace-nowrap">
                         {formatJst(log.executedAt)}
+                      </td>
+                      <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">
+                        {log.executorName ?? (log.executedBy ? log.executedBy.slice(0, 8) + "…" : "システム")}
                       </td>
                       <td className="py-2 pr-4 text-right">{log.total}</td>
                       <td className="py-2 pr-4 text-right">{log.updated}</td>
