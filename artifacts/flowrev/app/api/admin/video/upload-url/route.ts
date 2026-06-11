@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       "Content-Length": "0",
       "Upload-Length": String(fileSize),
       "Tus-Resumable": "1.0.0",
-      "Upload-Metadata": `name ${encodedName}`,
+      "Upload-Metadata": `name ${encodedName},requiresignedurls`,
     },
   });
 

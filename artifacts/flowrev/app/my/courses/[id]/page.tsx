@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, FileDown, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, FileDown, CheckCircle2, Lock } from "lucide-react";
 import { getSessionProfile } from "@/features/auth/session";
 import {
   getPublishedCourse,
@@ -10,9 +10,12 @@ import {
   getCustomerIdByUserId,
   getCourseProgress,
 } from "@/lib/repositories/progress";
+import { hasPurchasedProduct } from "@/lib/repositories/purchases";
 import { CompleteButton } from "@/features/my/components/complete-button";
 import { Badge } from "@/components/ui/badge";
 import type { LessonRow } from "@/lib/repositories/courses";
+import { getCloudflareSettingsResolved } from "@/lib/repositories/cloudflare-settings";
+import { getStreamSignedToken } from "@/lib/cloudflare/stream";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +24,32 @@ interface Props {
   searchParams: { lesson?: string };
 }
 
-function LessonContent({ lesson }: { lesson: LessonRow }) {
-  if (lesson.contentType === "video" && lesson.videoType === "cloudflare" && lesson.cloudflareVideoId) {
+function LessonContent({
+  lesson,
+  cfSignedToken,
+}: {
+  lesson: LessonRow;
+  cfSignedToken?: string | null;
+}) {
+  if (
+    lesson.contentType === "video" &&
+    lesson.videoType === "cloudflare" &&
+    lesson.cloudflareVideoId
+  ) {
+    if (!cfSignedToken) {
+      return (
+        <div className="aspect-video w-full rounded-lg overflow-hidden bg-black flex items-center justify-center">
+          <div className="text-center text-white flex flex-col items-center gap-2">
+            <Lock className="h-8 w-8 opacity-60" />
+            <p className="text-sm opacity-60">動画を再生できません。</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
         <iframe
-          src={`https://iframe.cloudflarestream.com/${lesson.cloudflareVideoId}`}
+          src={`https://iframe.cloudflarestream.com/${cfSignedToken}`}
           className="w-full h-full"
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
           allowFullScreen
@@ -75,6 +98,49 @@ function LessonContent({ lesson }: { lesson: LessonRow }) {
   );
 }
 
+/**
+ * 購入認可チェック済みの場合のみ Cloudflare 署名付きトークンを返す。
+ * - コースに productId が設定されている → paid 購入必須
+ * - productId なし → 全登録顧客がアクセス可能（購入チェック不要）
+ * 認可失敗・設定未登録・API 失敗時はすべて null を返す。
+ */
+async function resolveAuthorizedCfToken(
+  lesson: LessonRow | null,
+  customerId: string | null,
+  courseProductId: string | null,
+): Promise<string | null> {
+  if (
+    !lesson ||
+    lesson.contentType !== "video" ||
+    lesson.videoType !== "cloudflare" ||
+    !lesson.cloudflareVideoId
+  ) {
+    return null;
+  }
+
+  if (!customerId) return null;
+
+  if (courseProductId) {
+    const purchased = await hasPurchasedProduct(
+      customerId,
+      courseProductId,
+    ).catch(() => false);
+    if (!purchased) return null;
+  }
+
+  const settings = await getCloudflareSettingsResolved().catch(() => null);
+  if (!settings) return null;
+
+  return getStreamSignedToken(
+    settings.accountId,
+    settings.apiToken,
+    lesson.cloudflareVideoId,
+  ).catch((err: unknown) => {
+    console.error("[Stream] トークン生成失敗:", err);
+    return null;
+  });
+}
+
 export default async function MyCoursePage({ params, searchParams }: Props) {
   const session = await getSessionProfile();
   if (!session || session.role !== "customer") redirect("/login");
@@ -98,6 +164,12 @@ export default async function MyCoursePage({ params, searchParams }: Props) {
 
   const selectedId = searchParams.lesson ?? lessons[0]?.id ?? null;
   const selectedLesson = lessons.find((l) => l.id === selectedId) ?? null;
+
+  const cfSignedToken = await resolveAuthorizedCfToken(
+    selectedLesson,
+    customerId,
+    course.productId ?? null,
+  );
 
   const done = completedIds.size;
   const total = lessons.length;
@@ -177,7 +249,10 @@ export default async function MyCoursePage({ params, searchParams }: Props) {
                   />
                 )}
               </div>
-              <LessonContent lesson={selectedLesson} />
+              <LessonContent
+                lesson={selectedLesson}
+                cfSignedToken={cfSignedToken}
+              />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">

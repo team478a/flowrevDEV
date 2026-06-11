@@ -84,6 +84,25 @@ export async function hasPaidPurchase(
   return !!data;
 }
 
+/** 指定顧客が特定プロダクトの paid 購入を持っているか確認する */
+export async function hasPurchasedProduct(
+  customerId: string,
+  productId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("purchases")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("product_id", productId)
+    .eq("payment_status", "paid")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return false;
+  return !!data;
+}
+
 /** 顧客の購入履歴一覧を返す */
 export async function getPurchasesByCustomer(
   customerId: string,
