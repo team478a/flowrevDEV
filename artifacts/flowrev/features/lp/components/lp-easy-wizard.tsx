@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Sparkles, Eye, Loader2, ChevronLeft, Link2 } from "lucide-react";
+import { Sparkles, Eye, Loader2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/select";
 import type { LpActionState } from "@/features/lp/actions";
 import type { ProductRow } from "@/lib/repositories/products";
+import {
+  LpDesignPicker,
+  COLOR_THEMES,
+  type ColorThemeId,
+  type DesignStyleId,
+} from "@/features/lp/components/lp-design-picker";
 
 type Product = Pick<ProductRow, "id" | "name">;
 
@@ -31,15 +37,12 @@ function toSlug(text: string): string {
   return ascii.length > 2 ? `${ascii.slice(0, 24)}-${ts}` : `lp-${ts}`;
 }
 
+/** AI が <style> タグ込みの HTML を生成するので、ラッパーは最小限にする */
 function buildPreviewDoc(html: string): string {
   return `<!DOCTYPE html><html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-margin:0;padding:24px;color:#1a1a1a;line-height:1.7;font-size:15px;}
-h1,h2,h3{line-height:1.3;margin-top:1.5em;margin-bottom:.5em;}
-h1{font-size:1.8em;}h2{font-size:1.4em;}p{margin:0 0 1em;}
-img{max-width:100%;height:auto;}a{color:#3b82f6;}ul,ol{padding-left:1.5em;}
-</style></head><body>${html}</body></html>`;
+<style>*{box-sizing:border-box;}body{margin:0;}img{max-width:100%;height:auto;}</style>
+</head><body>${html}</body></html>`;
 }
 
 function SaveButton() {
@@ -59,6 +62,10 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
   const [target, setTarget] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [productId, setProductId] = useState("none");
+
+  const [colorTheme, setColorTheme] = useState<ColorThemeId>("blue");
+  const [designStyle, setDesignStyle] = useState<DesignStyleId>("modern");
+
   const [generatedHtml, setGeneratedHtml] = useState("");
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -67,6 +74,10 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
   const [referenceWarning, setReferenceWarning] = useState<string | null>(null);
   const [generated, setGenerated] = useState(false);
 
+  const STYLE_LABELS: Record<DesignStyleId, string> = {
+    modern: "モダン", natural: "ナチュラル", luxury: "高級感", pop: "ポップ", business: "ビジネス",
+  };
+
   async function handleGenerate() {
     if (!purpose.trim()) return;
     setIsGenerating(true);
@@ -74,6 +85,8 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
     setReferenceWarning(null);
 
     const selectedProduct = products.find((p) => p.id === productId);
+    const theme = COLOR_THEMES.find((t) => t.id === colorTheme) ?? COLOR_THEMES[0];
+
     try {
       const res = await fetch("/api/ai/generate-lp", {
         method: "POST",
@@ -82,6 +95,10 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
           title: `${purpose}${target ? `（ターゲット：${target}）` : ""}`,
           productName: selectedProduct?.name ?? "",
           referenceUrl: referenceUrl.trim() || undefined,
+          designStyleName: STYLE_LABELS[designStyle],
+          colorPrimary: theme.primary,
+          colorBg: theme.bg,
+          colorAccent: theme.accent,
         }),
       });
       const data = (await res.json()) as {
@@ -113,7 +130,7 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
       <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">1</span>
-          LP の目的を入力する
+          LP の目的とデザインを設定する
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -139,6 +156,14 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
           />
         </div>
 
+        {/* デザイン設定 */}
+        <LpDesignPicker
+          colorTheme={colorTheme}
+          designStyle={designStyle}
+          onColorChange={setColorTheme}
+          onStyleChange={setDesignStyle}
+        />
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ez-ref-url" className="flex items-center gap-1.5">
             <Link2 className="h-3.5 w-3.5" />
@@ -152,7 +177,7 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
             onChange={(e) => setReferenceUrl(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            競合・参考サイトの URL を入力すると、そのライティングスタイル・構成を参考に LP を生成します。
+            競合・参考サイトの URL を入力すると、そのライティングスタイルを参考に生成します。
           </p>
         </div>
 
@@ -176,7 +201,6 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
             ⚠ {referenceWarning}
           </p>
         )}
-
         {generateError && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
             {generateError}
@@ -191,11 +215,11 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
         >
           {isGenerating
             ? <><Loader2 className="h-4 w-4 animate-spin" />生成中…</>
-            : <><Sparkles className="h-4 w-4" />{generated ? "再生成する" : "AIでLP全体を生成する"}</>}
+            : <><Sparkles className="h-4 w-4" />{generated ? "再生成する" : "AIでデザイン済みLPを生成する"}</>}
         </Button>
       </section>
 
-      {/* Step 2：プレビュー＋保存（生成後に表示） */}
+      {/* Step 2：プレビュー＋保存 */}
       {generated && (
         <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
           <div className="flex items-center gap-2 text-sm font-semibold">
@@ -203,23 +227,21 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
             確認・保存する
           </div>
 
-          {/* プレビュー */}
           <div>
             <p className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
-              <Eye className="h-3 w-3" /> プレビュー
+              <Eye className="h-3 w-3" /> プレビュー（実際の公開ページと同じデザイン）
             </p>
             <div className="rounded-md border border-border overflow-hidden bg-white">
               <iframe
                 srcDoc={buildPreviewDoc(generatedHtml)}
                 className="w-full"
-                style={{ height: "360px" }}
+                style={{ height: "480px" }}
                 sandbox="allow-same-origin"
                 title="生成されたLPのプレビュー"
               />
             </div>
           </div>
 
-          {/* 保存フォーム */}
           {state.error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
               {state.error}
@@ -246,9 +268,7 @@ export function LpEasyWizard({ action, products }: LpEasyWizardProps) {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ez-status">公開設定</Label>
               <Select name="status" defaultValue="draft">
-                <SelectTrigger id="ez-status">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger id="ez-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="draft">下書き（後で公開）</SelectItem>
                   <SelectItem value="published">今すぐ公開</SelectItem>

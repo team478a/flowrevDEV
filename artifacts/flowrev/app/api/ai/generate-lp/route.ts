@@ -54,11 +54,20 @@ export async function POST(req: NextRequest) {
   let title = "";
   let productName = "";
   let referenceUrl = "";
+  let designStyleName = "";
+  let colorPrimary = "";
+  let colorBg = "";
+  let colorAccent = "";
+
   try {
     const body = await req.json();
     title = String(body.title ?? "").trim();
     productName = String(body.productName ?? "").trim();
     referenceUrl = String(body.referenceUrl ?? "").trim();
+    designStyleName = String(body.designStyleName ?? "").trim();
+    colorPrimary = String(body.colorPrimary ?? "").trim();
+    colorBg = String(body.colorBg ?? "").trim();
+    colorAccent = String(body.colorAccent ?? "").trim();
   } catch {
     return NextResponse.json({ error: "リクエストが不正です。" }, { status: 400 });
   }
@@ -88,8 +97,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const design =
+    colorPrimary
+      ? {
+          styleName: designStyleName || undefined,
+          primary: colorPrimary,
+          bg: colorBg || undefined,
+          accent: colorAccent || undefined,
+        }
+      : undefined;
+
   try {
-    const text = await generateText(buildLpPrompt(title, productName, referenceContent));
+    const text = await generateText(
+      buildLpPrompt(title, productName, referenceContent, design),
+    );
     return NextResponse.json({ text, referenceWarning });
   } catch (e) {
     const message = e instanceof Error ? e.message : "生成に失敗しました。";
