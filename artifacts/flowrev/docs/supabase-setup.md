@@ -239,6 +239,17 @@ CREATE POLICY "system_admin can insert video check logs"
 
 ---
 
+### ステップ 10 — clients テーブルに plan_id カラム追加
+
+> 招待登録時に「plan_id column not found」エラーが出る場合はこれが原因です。
+
+```sql
+ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS plan_id UUID REFERENCES plans(id) ON DELETE SET NULL;
+```
+
+---
+
 ## 適用後の確認方法
 
 SQL Editor で以下を実行し、テーブルが存在することを確認してください。
