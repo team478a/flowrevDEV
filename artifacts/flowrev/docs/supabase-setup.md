@@ -292,6 +292,35 @@ ALTER TABLE landing_pages ADD COLUMN IF NOT EXISTS line_add_url TEXT;
 
 ---
 
+### ステップ 12 — LP 画像用公開バケット作成
+
+> LP に画像をアップロード／AI 生成して挿入する機能に必要です。
+
+```sql
+-- 公開バケット作成（既存の場合はスキップ）
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('lp-images', 'lp-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS ポリシー
+DROP POLICY IF EXISTS "lp-images: 全員が閲覧可能" ON storage.objects;
+CREATE POLICY "lp-images: 全員が閲覧可能"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'lp-images');
+
+DROP POLICY IF EXISTS "lp-images: 認証ユーザーがアップロード可能" ON storage.objects;
+CREATE POLICY "lp-images: 認証ユーザーがアップロード可能"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'lp-images' AND auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "lp-images: 認証ユーザーが削除可能" ON storage.objects;
+CREATE POLICY "lp-images: 認証ユーザーが削除可能"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'lp-images' AND auth.role() = 'authenticated');
+```
+
+---
+
 ## 適用後の確認方法
 
 SQL Editor で以下を実行し、テーブルが存在することを確認してください。

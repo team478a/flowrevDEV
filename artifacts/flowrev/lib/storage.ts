@@ -81,3 +81,45 @@ export async function deleteProductImage(path: string): Promise<void> {
   const supabase = createAdminClient();
   await supabase.storage.from(BUCKET).remove([path]);
 }
+
+// ─── LP 画像（公開バケット）────────────────────────────────────────
+const LP_BUCKET = "lp-images";
+
+/**
+ * LP 用画像を公開バケットにアップロードする。
+ * パス: `{userId}/{uuid}.{ext}`
+ * @returns Storage 上のファイルパス
+ */
+export async function uploadLpImage(
+  buffer: ArrayBuffer,
+  mimeType: string,
+  userId: string,
+): Promise<string> {
+  if (!isAllowedMime(mimeType)) {
+    throw new Error("JPG・PNG・WebP のみアップロードできます。");
+  }
+  if (buffer.byteLength > MAX_BYTES) {
+    throw new Error("ファイルサイズは 5MB 以内にしてください。");
+  }
+
+  const ext = extFromMime(mimeType as AllowedMime);
+  const path = `${userId}/${randomUUID()}.${ext}`;
+  const supabase = createAdminClient();
+  const { error } = await supabase.storage
+    .from(LP_BUCKET)
+    .upload(path, buffer, { contentType: mimeType, upsert: false });
+
+  if (error) {
+    throw new Error(`画像のアップロードに失敗しました: ${error.message}`);
+  }
+  return path;
+}
+
+/**
+ * LP 画像の永続的な公開 URL を返す（公開バケットのため期限なし）。
+ */
+export function getLpImagePublicUrl(path: string): string {
+  const supabase = createAdminClient();
+  const { data } = supabase.storage.from(LP_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}

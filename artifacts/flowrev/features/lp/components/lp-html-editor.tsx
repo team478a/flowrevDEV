@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Eye, Code2, ExternalLink } from "lucide-react";
+import { LpImageToolbar } from "@/features/lp/components/lp-image-toolbar";
 
 interface LpHtmlEditorProps {
   value: string;
@@ -81,8 +82,26 @@ export function LpHtmlEditor({
     openPreviewInNewTab(value);
   }, [value]);
 
+  /** テキストエリアのカーソル位置に imgHtml を挿入する */
+  const handleInsert = useCallback((imgHtml: string) => {
+    const textarea = document.getElementById(id) as HTMLTextAreaElement | null;
+    const pos = textarea?.selectionStart ?? value.length;
+    const newValue = value.slice(0, pos) + "\n" + imgHtml + "\n" + value.slice(pos);
+    onChange(newValue);
+    setTimeout(() => {
+      if (!textarea) return;
+      const next = pos + imgHtml.length + 2;
+      textarea.selectionStart = next;
+      textarea.selectionEnd = next;
+      textarea.focus();
+    }, 0);
+  }, [id, value, onChange]);
+
   return (
     <div className="flex flex-col gap-2">
+      {/* 画像挿入ツールバー */}
+      <LpImageToolbar onInsert={handleInsert} />
+
       {/* モバイル：タブ切替 */}
       <div className="flex items-center gap-1 lg:hidden">
         {(["edit", "preview"] as Tab[]).map((t) => (
