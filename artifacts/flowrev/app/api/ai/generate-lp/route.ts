@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateText, buildLpPrompt } from "@/lib/ai/client";
+import { generateLpHtml } from "@/lib/ai/client";
+import { generateLpCss, buildDesignedLpPrompt, type LpColorConfig } from "@/lib/ai/lp-design-system";
 
 const REFERENCE_MAX_CHARS = 3000;
 const FETCH_TIMEOUT_MS = 8000;
 
-/** HTML タグ・script・style を除去してプレーンテキストを抽出する */
 function extractTextFromHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -13,13 +13,10 @@ function extractTextFromHtml(html: string): string {
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
-/** URL を fetch してテキストを抽出する。失敗時は null を返す */
 async function fetchReferenceText(url: string): Promise<string | null> {
   try {
     const controller = new AbortController();
@@ -29,24 +26,27 @@ async function fetchReferenceText(url: string): Promise<string | null> {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; FlowRevBot/1.0)" },
     });
     clearTimeout(timer);
-
     if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html")) return null;
-
+    const ct = res.headers.get("content-type") ?? "";
+    if (!ct.includes("text/html")) return null;
     const html = await res.text();
-    const text = extractTextFromHtml(html);
-    return text.slice(0, REFERENCE_MAX_CHARS);
+    return extractTextFromHtml(html).slice(0, REFERENCE_MAX_CHARS);
   } catch {
     return null;
   }
 }
 
+/** AI が出力するコードブロックマーカーを除去する */
+function stripCodeFence(text: string): string {
+  return text
+    .replace(/^```[\w]*\n?/m, "")
+    .replace(/\n?```\s*$/m, "")
+    .trim();
+}
+
 export async function POST(req: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
   }
@@ -54,20 +54,20 @@ export async function POST(req: NextRequest) {
   let title = "";
   let productName = "";
   let referenceUrl = "";
-  let designStyleName = "";
-  let colorPrimary = "";
-  let colorBg = "";
-  let colorAccent = "";
+  let designStyleName = "モダン";
+  let colorPrimary = "#2563eb";
+  let colorBg = "#eff6ff";
+  let colorAccent = "#1d4ed8";
 
   try {
     const body = await req.json();
     title = String(body.title ?? "").trim();
     productName = String(body.productName ?? "").trim();
     referenceUrl = String(body.referenceUrl ?? "").trim();
-    designStyleName = String(body.designStyleName ?? "").trim();
-    colorPrimary = String(body.colorPrimary ?? "").trim();
-    colorBg = String(body.colorBg ?? "").trim();
-    colorAccent = String(body.colorAccent ?? "").trim();
+    if (body.designStyleName) designStyleName = String(body.designStyleName).trim();
+    if (body.colorPrimary) colorPrimary = String(body.colorPrimary).trim();
+    if (body.colorBg) colorBg = String(body.colorBg).trim();
+    if (body.colorAccent) colorAccent = String(body.colorAccent).trim();
   } catch {
     return NextResponse.json({ error: "リクエストが不正です。" }, { status: 400 });
   }
@@ -89,28 +89,22 @@ export async function POST(req: NextRequest) {
       if (text && text.length > 50) {
         referenceContent = text;
       } else {
-        referenceWarning =
-          "参考URLからテキストを取得できませんでした。通常の生成で続行します。";
+        referenceWarning = "参考URLからテキストを取得できませんでした。通常の生成で続行します。";
       }
     } catch {
       referenceWarning = "参考URLの形式が正しくありません。通常の生成で続行します。";
     }
   }
 
-  const design =
-    colorPrimary
-      ? {
-          styleName: designStyleName || undefined,
-          primary: colorPrimary,
-          bg: colorBg || undefined,
-          accent: colorAccent || undefined,
-        }
-      : undefined;
+  const color: LpColorConfig = { primary: colorPrimary, bg: colorBg, accent: colorAccent };
+  const css = generateLpCss(color, designStyleName);
+  const prompt = buildDesignedLpPrompt(title, productName, designStyleName, referenceContent);
 
   try {
-    const text = await generateText(
-      buildLpPrompt(title, productName, referenceContent, design),
-    );
+    const rawHtml = await generateLpHtml(prompt);
+    const bodyHtml = stripCodeFence(rawHtml);
+    // CSS をサーバー側で結合して返す
+    const text = `<style>${css}</style>\n${bodyHtml}`;
     return NextResponse.json({ text, referenceWarning });
   } catch (e) {
     const message = e instanceof Error ? e.message : "生成に失敗しました。";
